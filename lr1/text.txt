@@ -1,2 +1,2 @@
-test doc
+test doc через GitBash
 правка через гитхаб
