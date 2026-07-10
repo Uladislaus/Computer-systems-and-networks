@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Современный одностраничный сайт — портфолио и контакты">
+  <title>Мой сайт</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="#" class="nav__logo">Мой<span>Сайт</span></a>
+      <button class="nav__toggle" id="nav-toggle" aria-label="Открыть меню">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav__menu" id="nav-menu">
+        <li><a href="#home" class="nav__link active">Главная</a></li>
+        <li><a href="#about" class="nav__link">Обо мне</a></li>
+        <li><a href="#skills" class="nav__link">Навыки</a></li>
+        <li><a href="#projects" class="nav__link">Проекты</a></li>
+        <li><a href="#contact" class="nav__link">Контакты</a></li>
+      </ul>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Переключить тему">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero__bg"></div>
+      <div class="container hero__content">
+        <p class="hero__greeting">Привет, я</p>
+        <h1 class="hero__title">Разработчик</h1>
+        <p class="hero__subtitle">Создаю современные веб-приложения с чистым кодом и продуманным дизайном</p>
+        <div class="hero__actions">
+          <a href="#projects" class="btn btn--primary">Смотреть проекты</a>
+          <a href="#contact" class="btn btn--outline">Связаться</a>
+        </div>
+        <div class="hero__stats">
+          <div class="stat">
+            <span class="stat__number" data-target="3">0</span>
+            <span class="stat__label">года опыта</span>
+          </div>
+          <div class="stat">
+            <span class="stat__number" data-target="12">0</span>
+            <span class="stat__label">проектов</span>
+          </div>
+          <div class="stat">
+            <span class="stat__number" data-target="8">0</span>
+            <span class="stat__label">технологий</span>
+          </div>
+        </div>
+      </div>
+      <a href="#about" class="hero__scroll" aria-label="Прокрутить вниз">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12l7 7 7-7"/>
+        </svg>
+      </a>
+    </section>
+
+    <section class="about section" id="about">
+      <div class="container">
+        <h2 class="section__title">Обо мне</h2>
+        <div class="about__grid">
+          <div class="about__image">
+            <div class="about__avatar">
+              <span>👨‍💻</span>
+            </div>
+          </div>
+          <div class="about__text">
+            <p>Я увлекаюсь веб-разработкой и создаю сайты, которые не только красиво выглядят, но и удобны в использовании.</p>
+            <p>Работаю с современными технологиями: HTML, CSS, JavaScript, а также изучаю новые инструменты и фреймворки.</p>
+            <ul class="about__list">
+              <li>Адаптивная вёрстка под любые устройства</li>
+              <li>Оптимизация скорости загрузки</li>
+              <li>Чистый и поддерживаемый код</li>
+              <li>Внимание к деталям и UX</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="skills section" id="skills">
+      <div class="container">
+        <h2 class="section__title">Навыки</h2>
+        <div class="skills__grid">
+          <div class="skill-card">
+            <div class="skill-card__icon">🌐</div>
+            <h3>Frontend</h3>
+            <p>HTML, CSS, JavaScript, React</p>
+          </div>
+          <div class="skill-card">
+            <div class="skill-card__icon">⚙️</div>
+            <h3>Backend</h3>
+            <p>Node.js, Python, REST API</p>
+          </div>
+          <div class="skill-card">
+            <div class="skill-card__icon">🎨</div>
+            <h3>Дизайн</h3>
+            <p>Figma, UI/UX, адаптивность</p>
+          </div>
+          <div class="skill-card">
+            <div class="skill-card__icon">🔧</div>
+            <h3>Инструменты</h3>
+            <p>Git, VS Code, npm, Docker</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="projects section" id="projects">
+      <div class="container">
+        <h2 class="section__title">Проекты</h2>
+        <div class="projects__grid">
+          <article class="project-card">
+            <div class="project-card__image project-card__image--1"></div>
+            <div class="project-card__body">
+              <h3>Лендинг</h3>
+              <p>Одностраничный сайт с анимациями и тёмной темой</p>
+              <div class="project-card__tags">
+                <span>HTML</span>
+                <span>CSS</span>
+                <span>JS</span>
+              </div>
+            </div>
+          </article>
+          <article class="project-card">
+            <div class="project-card__image project-card__image--2"></div>
+            <div class="project-card__body">
+              <h3>Туду-приложение</h3>
+              <p>Менеджер задач с локальным хранением данных</p>
+              <div class="project-card__tags">
+                <span>JavaScript</span>
+                <span>LocalStorage</span>
+              </div>
+            </div>
+          </article>
+          <article class="project-card">
+            <div class="project-card__image project-card__image--3"></div>
+            <div class="project-card__body">
+              <h3>Погодный виджет</h3>
+              <p>Приложение с данными о погоде через API</p>
+              <div class="project-card__tags">
+                <span>API</span>
+                <span>Fetch</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="contact section" id="contact">
+      <div class="container">
+        <h2 class="section__title">Контакты</h2>
+        <div class="contact__wrapper">
+          <form class="contact__form" id="contact-form">
+            <div class="form-group">
+              <label for="name">Имя</label>
+              <input type="text" id="name" name="name" placeholder="Ваше имя" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" placeholder="email@example.com" required>
+            </div>
+            <div class="form-group">
+              <label for="message">Сообщение</label>
+              <textarea id="message" name="message" rows="5" placeholder="Напишите сообщение..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Отправить</button>
+            <p class="form-status" id="form-status"></p>
+          </form>
+          <div class="contact__info">
+            <div class="contact__item">
+              <span class="contact__icon">📧</span>
+              <div>
+                <h4>Email</h4>
+                <p>hello@example.com</p>
+              </div>
+            </div>
+            <div class="contact__item">
+              <span class="contact__icon">📍</span>
+              <div>
+                <h4>Локация</h4>
+                <p>Москва, Россия</p>
+              </div>
+            </div>
+            <div class="contact__item">
+              <span class="contact__icon">💬</span>
+              <div>
+                <h4>Соцсети</h4>
+                <div class="social-links">
+                  <a href="#" aria-label="GitHub">GitHub</a>
+                  <a href="#" aria-label="Telegram">Telegram</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__content">
+      <p>&copy; 2026 МойСайт. Сделано с ❤️</p>
+      <a href="#home" class="footer__top">Наверх ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
