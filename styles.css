@@ -8,6 +8,7 @@
   --brand: #ff6b2c;
   --brand-dark: #d94916;
   --accent: #253edb;
+  --success: #167243;
   --card: rgba(255, 250, 242, 0.82);
   --shadow: 0 24px 80px rgba(40, 31, 21, 0.14);
 }
@@ -390,7 +391,7 @@ h3 {
 .form-note {
   min-height: 1.5rem;
   margin: 0;
-  color: var(--brand-dark);
+  color: var(--success);
   font-weight: 700;
 }
 
