@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Твой сайт — стартовая страница</title>
+  <meta
+    name="description"
+    content="Современный одностраничный сайт: преимущества, услуги и контактная форма."
+  />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav container">
+      <a class="logo" href="#home">YourSite</a>
+      <div class="nav-links">
+        <a href="#about">О сайте</a>
+        <a href="#services">Услуги</a>
+        <a href="#contact">Контакты</a>
+      </div>
+    </nav>
+    <section id="home" class="hero-content container">
+      <p class="badge">Готово к запуску</p>
+      <h1>Твой новый сайт уже здесь</h1>
+      <p class="subtitle">
+        Адаптивный одностраничный сайт с чистой структурой, красивым дизайном
+        и базовой интерактивностью.
+      </p>
+      <a class="cta" href="#contact">Связаться</a>
+    </section>
+  </header>
+
+  <main>
+    <section id="about" class="section container">
+      <h2>Почему это удобно</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Быстрый старт</h3>
+          <p>Работает сразу из коробки: просто открой `index.html` в браузере.</p>
+        </article>
+        <article class="card">
+          <h3>Адаптивность</h3>
+          <p>Корректно выглядит на телефоне, планшете и десктопе.</p>
+        </article>
+        <article class="card">
+          <h3>Лёгкая доработка</h3>
+          <p>Можно легко поменять тексты, цвета и блоки под свои задачи.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="services" class="section section-alt">
+      <div class="container">
+        <h2>Что можно разместить</h2>
+        <ul class="list">
+          <li>Информацию о себе или компании</li>
+          <li>Портфолио и кейсы</li>
+          <li>Контакты и форму обратной связи</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="contact" class="section container">
+      <h2>Оставь заявку</h2>
+      <form id="contact-form" class="contact-form" novalidate>
+        <label>
+          Имя
+          <input type="text" name="name" required placeholder="Как к тебе обращаться?" />
+        </label>
+        <label>
+          Email
+          <input type="email" name="email" required placeholder="example@mail.com" />
+        </label>
+        <label>
+          Сообщение
+          <textarea name="message" rows="4" required placeholder="Коротко опиши задачу"></textarea>
+        </label>
+        <button type="submit">Отправить</button>
+        <p id="form-message" class="form-message" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© <span id="year"></span> YourSite. Все права защищены.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
