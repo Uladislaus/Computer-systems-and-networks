@@ -391,8 +391,16 @@ h3 {
 .form-note {
   min-height: 1.5rem;
   margin: 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(22, 114, 67, 0.22);
+  border-radius: 1rem;
+  background: rgba(22, 114, 67, 0.1);
   color: var(--success);
   font-weight: 700;
+}
+
+.form-note[hidden] {
+  display: none;
 }
 
 .site-footer {

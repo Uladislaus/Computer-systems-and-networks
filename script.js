@@ -18,7 +18,6 @@ navLinks.forEach((link) => {
 
 form?.addEventListener("submit", (event) => {
   event.preventDefault();
-  form.reset();
   if (formNote) {
     formNote.hidden = false;
     formNote.textContent = "Спасибо! Заявка готова к отправке после подключения backend.";
