@@ -26,7 +26,7 @@
   let soundOn = false;
 
   const ribbons = [
-    { amp: 0.18, speed: 0.22, hue: 155, thick: 0.22, phase: 0.0 },
+    { amp: 0.22, speed: 0.22, hue: 155, thick: 0.28, phase: 0.0 },
     { amp: 0.14, speed: 0.31, hue: 175, thick: 0.18, phase: 1.7 },
     { amp: 0.11, speed: 0.17, hue: 130, thick: 0.26, phase: 3.1 },
     { amp: 0.09, speed: 0.41, hue: 195, thick: 0.14, phase: 4.4 },
@@ -102,7 +102,7 @@
         }
         ctx.closePath();
 
-        const alpha = (0.085 - layer * 0.02) * (0.75 + scrollIntensity * 0.6);
+        const alpha = (0.16 - layer * 0.03) * (0.85 + scrollIntensity * 0.7);
         ctx.fillStyle = `hsla(${ribbon.hue + mouse.x * 20}, 90%, ${58 - layer * 6}%, ${alpha})`;
         ctx.fill();
       }
@@ -116,8 +116,8 @@
       mouse.y * height * 0.7,
       width * 0.45
     );
-    glow.addColorStop(0, "rgba(61, 255, 181, 0.12)");
-    glow.addColorStop(0.45, "rgba(126, 200, 255, 0.05)");
+    glow.addColorStop(0, "rgba(61, 255, 181, 0.22)");
+    glow.addColorStop(0.45, "rgba(126, 200, 255, 0.1)");
     glow.addColorStop(1, "transparent");
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, width, height);
