@@ -1,8 +1,6 @@
 (() => {
   const canvas = document.getElementById("aurora");
   const progress = document.getElementById("progress");
-  const cursor = document.getElementById("cursor");
-  const cursorRing = document.getElementById("cursor-ring");
   const soundBtn = document.getElementById("sound");
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
@@ -13,7 +11,6 @@
   const magnetic = [...document.querySelectorAll("[data-magnetic]")];
 
   const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
-  if (isTouch) document.body.classList.add("is-touch");
 
   let width = 0;
   let height = 0;
@@ -370,37 +367,15 @@
     nodes.forEach((node) => io.observe(node));
   }
 
-  function setupCursor() {
-    if (isTouch) return;
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight / 2;
-    let rx = x;
-    let ry = y;
-
+  function setupPointer() {
     window.addEventListener(
       "pointermove",
       (e) => {
-        x = e.clientX;
-        y = e.clientY;
         mouse.tx = e.clientX / Math.max(width, 1);
         mouse.ty = e.clientY / Math.max(height, 1);
-        cursor.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
       },
       { passive: true }
     );
-
-    const tick = () => {
-      rx += (x - rx) * 0.18;
-      ry += (y - ry) * 0.18;
-      cursorRing.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
-      requestAnimationFrame(tick);
-    };
-    tick();
-
-    document.querySelectorAll("a, button, input, .place").forEach((el) => {
-      el.addEventListener("pointerenter", () => document.body.classList.add("is-hover"));
-      el.addEventListener("pointerleave", () => document.body.classList.remove("is-hover"));
-    });
   }
 
   function setupMagnetic() {
@@ -509,7 +484,7 @@
   resize();
   updateScroll();
   setupReveals();
-  setupCursor();
+  setupPointer();
   setupMagnetic();
   setupRail();
   requestAnimationFrame(frame);
