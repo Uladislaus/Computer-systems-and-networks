@@ -99,98 +99,87 @@
       return aurora;
     }
 
-    // Cell-based alpine teeth — pointy, irregular, never sine-smooth
+    // Sparse alpine profile: a few major peaks per range, sharp tips, deep valleys
     float mountainHeight(float x, float seed) {
-      float h = 0.0;
+      // Wide cells ⇒ few peaks (range silhouette, not a comb)
+      float cell = floor(x * 0.42 + seed * 2.3);
+      float f = fract(x * 0.42 + seed * 2.3);
+      float center = 0.3 + 0.4 * hash(vec2(cell, seed));
+      float sharp = 1.7 + 1.8 * hash(vec2(cell, seed + 1.0));
+      float peak = pow(max(1.0 - abs(f - center) * 2.35, 0.0), sharp);
+      peak *= 0.45 + 0.55 * hash(vec2(cell, seed + 2.0));
 
-      // Large peaks
-      float c1 = floor(x * 0.85 + seed * 3.1);
-      float f1 = fract(x * 0.85 + seed * 3.1);
-      float center1 = 0.25 + 0.5 * hash(vec2(c1, seed));
-      float sharp1 = 2.8 + 3.5 * hash(vec2(c1, seed + 1.0));
-      float w1 = 1.8 + 1.4 * hash(vec2(c1 + 2.0, seed));
-      h = max(h, pow(max(1.0 - abs(f1 - center1) * w1, 0.0), sharp1) * (0.55 + 0.45 * hash(vec2(c1, seed + 4.0))));
+      // Occasional shoulder peak in same cell
+      float shoulder = pow(max(1.0 - abs(f - fract(center + 0.38)) * 3.2, 0.0), 2.8);
+      shoulder *= 0.25 * hash(vec2(cell, seed + 3.0));
 
-      // Mid crags
-      float c2 = floor(x * 2.1 + seed * 5.0);
-      float f2 = fract(x * 2.1 + seed * 5.0);
-      float center2 = 0.3 + 0.4 * hash(vec2(c2, seed + 6.0));
-      h = max(h, pow(max(1.0 - abs(f2 - center2) * 2.6, 0.0), 3.8) * 0.45 * hash(vec2(c2, seed + 7.0)));
+      // Light ridged detail on flanks only (keeps valleys empty)
+      float detail = pow(1.0 - abs(fbm(vec2(x * 1.8 + seed, seed)) * 2.0 - 1.0), 4.5) * 0.07;
 
-      // Fine sawtooth
-      float c3 = floor(x * 5.2 + seed * 2.0);
-      float f3 = fract(x * 5.2 + seed * 2.0);
-      h += pow(max(1.0 - abs(f3 - 0.5) * 2.4, 0.0), 5.0) * 0.18 * hash(vec2(c3, seed + 8.0));
-
-      // Ridged noise spikes
-      float n = fbm(vec2(x * 3.2 + seed, seed));
-      float ridged = pow(1.0 - abs(n * 2.0 - 1.0), 3.0);
-      h += ridged * 0.22;
-
-      return clamp(h, 0.0, 1.4);
+      return clamp(peak + shoulder + detail, 0.0, 1.2);
     }
 
-    // Distant white summit — hard pyramid
+    // One clear distant white pyramid
     float farPeak(float x) {
-      float p1 = pow(max(1.0 - abs(x - 0.1) * 4.2, 0.0), 3.2);
-      float p2 = pow(max(1.0 - abs(x + 0.7) * 6.0, 0.0), 3.8) * 0.4;
-      return p1 + p2;
+      return pow(max(1.0 - abs(x - 0.08) * 3.6, 0.0), 2.8);
     }
 
-    // Perspective mountain ranges: jagged near ridges → hazy mid → far pale → white summit
+    // Layered RANGE silhouettes with air between them (not a solid heightfield mass)
     vec3 paintMountains(vec2 uv, float aspect, float rise, vec3 skyCol, float groundY) {
       if (rise < 0.01) return skyCol;
       vec3 col = skyCol;
       float mousePar = (u_mouse.x - 0.5);
 
-      // far → near
-      for (int i = 0; i < 6; i++) {
+      // 4 ranges: 0 farthest (white peak) … 3 nearest
+      for (int i = 0; i < 4; i++) {
         float fi = float(i);
-        float t = fi / 5.0; // 0 far … 1 near
+        float t = fi / 3.0; // 0 far … 1 near
 
-        float parallax = mousePar * mix(0.015, 0.09, t);
-        float xScale = mix(1.1, 1.7, t);
-        float x = (uv.x + parallax) * aspect * xScale + fi * 2.15 + fi * 1.73 + 0.37;
+        float parallax = mousePar * mix(0.01, 0.08, t);
+        float x = (uv.x + parallax) * aspect * mix(1.15, 1.6, t) + fi * 2.6 + 0.5;
 
-        float base = mix(0.48, 0.1, pow(t, 0.85)) + groundY * mix(0.0, 0.05, t);
-        float amp = mix(0.16, 0.52, pow(t, 0.65));
-        float ridge = base + mountainHeight(x, 2.1 + fi * 2.4) * amp;
+        // Far ranges sit near horizon; near ranges are taller in frame but leave sky gaps
+        float base = mix(0.42, 0.12, t) + groundY * 0.04;
+        float amp = mix(0.14, 0.4, pow(t, 0.75));
+        float ridge = base + mountainHeight(x, 3.0 + fi * 3.1) * amp;
 
-        if (i <= 1) {
-          float px = (uv.x + mousePar * 0.015) * 2.0 - 1.0;
-          ridge += farPeak(px) * mix(0.34, 0.12, fi) * rise;
+        if (i == 0) {
+          float px = (uv.x + mousePar * 0.01) * 2.0 - 1.0;
+          ridge += farPeak(px) * 0.32 * rise;
         }
 
-        ridge = mix(groundY - 0.25, ridge, rise);
+        ridge = mix(groundY - 0.3, ridge, rise);
 
-        // Hard cut silhouette
-        if (uv.y < ridge) {
-          vec3 nearRock = vec3(0.09, 0.085, 0.09);
-          vec3 midRock = vec3(0.2, 0.19, 0.22);
-          vec3 farRock = vec3(0.45, 0.5, 0.56);
-          vec3 rock = mix(farRock, mix(midRock, nearRock, smoothstep(0.4, 1.0, t)), smoothstep(0.0, 0.65, t));
+        // Only paint a "slab" of mountain under the ridge down toward ground,
+        // but leave atmospheric gaps: stop short so farther ranges show through valleys
+        float slabBottom = mix(base - 0.02, groundY, 0.55 + 0.35 * t);
+        if (uv.y < ridge && uv.y > slabBottom) {
+          // Flat silhouette colors by depth (poster ranges)
+          vec3 rock = vec3(0.1, 0.095, 0.1);
+          if (i == 0) rock = vec3(0.62, 0.66, 0.72);
+          else if (i == 1) rock = vec3(0.4, 0.42, 0.48);
+          else if (i == 2) rock = vec3(0.22, 0.21, 0.24);
 
-          float nx = mountainHeight(x + 0.01, 2.1 + fi * 2.4) - mountainHeight(x - 0.01, 2.1 + fi * 2.4);
-          rock *= 0.55 + 0.6 * clamp(0.5 - nx * 3.5, 0.0, 1.0);
+          // Simple side light without turning it into a cone field
+          float nx = mountainHeight(x + 0.02, 3.0 + fi * 3.1) - mountainHeight(x - 0.02, 3.0 + fi * 3.1);
+          rock *= 0.85 + 0.2 * clamp(0.5 - nx * 1.5, 0.0, 1.0);
 
-          float bands = step(0.55, fbm(vec2(x * 1.4, uv.y * 10.0 + fi)));
-          rock *= 1.0 - bands * (0.12 + 0.2 * t);
-
-          // Snow on tips only
-          float tip = clamp((uv.y - (ridge - amp * 0.4)) / max(amp * 0.4, 0.001), 0.0, 1.0);
-          float snow = smoothstep(0.62, 0.92, tip) * mix(1.0, 0.15, t);
+          // Snow cap near tip
+          float tip = smoothstep(ridge - amp * 0.35, ridge, uv.y);
+          float snow = tip * tip * mix(1.0, 0.25, t);
           if (i == 0) {
-            float px = (uv.x + mousePar * 0.015) * 2.0 - 1.0;
-            snow = max(snow, farPeak(px) * step(ridge - 0.05, uv.y) * 1.8);
+            float px = (uv.x + mousePar * 0.01) * 2.0 - 1.0;
+            snow = max(snow, farPeak(px) * tip * 1.8);
           }
-          rock = mix(rock, vec3(0.96, 0.98, 1.0), clamp(snow, 0.0, 1.0));
+          rock = mix(rock, vec3(0.95, 0.97, 1.0), clamp(snow, 0.0, 1.0));
 
-          col = rock; // solid fill under ridge — no soft blend
+          col = rock;
         }
       }
 
-      float fog = exp(-(uv.y - groundY) * 4.5) * 0.22 * rise;
-      col = mix(col, vec3(0.55, 0.6, 0.66), clamp(fog, 0.0, 0.3));
+      // Soft valley mist only near ground
+      float fog = exp(-(uv.y - groundY) * 5.0) * 0.25 * rise;
+      col = mix(col, vec3(0.55, 0.6, 0.66), clamp(fog, 0.0, 0.35));
       return col;
     }
 
