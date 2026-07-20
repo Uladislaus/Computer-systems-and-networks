@@ -274,22 +274,23 @@
       dawn += vec3(1.0, 0.7, 0.35) * exp(-length(vec2((uv.x - 0.72) * aspect, uv.y - 0.4) * vec2(2.2, 3.5)) * 3.5) * 0.5;
       vec3 col = mix(night, dawn, dawnAmt);
 
-      // Soft dusk near horizon — sky above stays clear
-      float dusk = exp(-abs(uv.y - horizon) * 5.5) * max(horizonHint, landAmt);
-      col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.4);
+      float rise = max(landAmt, horizonHint * 0.4);
+      float crestApprox = horizon + 0.28 * rise * (1.0 - pullBack * 0.65);
+
+      // Narrow dusk right at the seam — was painting a wide black belt over the aurora
+      float dusk = exp(-abs(uv.y - horizon) * 11.0) * max(horizonHint, landAmt);
+      col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.3);
 
       vec2 cell = floor(uv * vec2(u_res.x / 70.0, u_res.y / 70.0));
-      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(horizon + 0.2, 0.7, uv.y);
+      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
       col += vec3(0.9, 0.95, 1.0) * star * (0.65 + 0.35 * sin(u_time * 3.0 + hash(cell) * 50.0));
 
-      // Aurora stays in the upper sky — only a gentle nod toward the ridge
-      float auroraShift = -landAmt * 0.06 - pullBack * 0.04;
-      float auroraMask = smoothstep(horizon + 0.18, 0.45, uv.y) * auroraAmt;
+      // Aurora reaches down to just above the ridge — gap ~half of the old black strip
+      float auroraShift = -landAmt * 0.04 - pullBack * 0.03;
+      float auroraMask = smoothstep(crestApprox + 0.03, crestApprox + 0.12, uv.y) * auroraAmt;
       col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
 
       // --- Layered ridge under an open sky ---
-      float rise = max(landAmt, horizonHint * 0.4);
-      float crestApprox = horizon + 0.28 * rise * (1.0 - pullBack * 0.65);
       if (rise > 0.001) {
         vec3 land = paintMountains(uv, aspect, rise, col, horizon, pullBack, dawnAmt);
         col = mix(col, land, smoothstep(0.0, 0.2, rise));
