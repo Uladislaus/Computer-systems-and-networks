@@ -95,8 +95,6 @@ body.is-touch a {
   height: 100%;
   z-index: 0;
   pointer-events: none;
-  /* own compositor layer — reduces Chrome checkerboard flashes on Windows */
-  transform: translateZ(0);
 }
 
 /* Cursor: green dot + lagging ring; dot turns white on interactive hover */
