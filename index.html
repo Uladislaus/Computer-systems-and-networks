@@ -827,7 +827,7 @@ body,
   }
 }
 
-  </style>
+</style>
 </head>
 <body data-world="sky">
   <div class="cursor" id="cursor" aria-hidden="true"></div>
@@ -1098,109 +1098,87 @@ body,
       return aurora;
     }
 
-    // Sparse alpine profile: a few major peaks per range, sharp tips, deep valleys
+    // Soft multi-ridge profile — broad shoulders, rounded crests (no needles)
     float mountainHeight(float x, float seed) {
-      // Wide cells ⇒ few peaks (range silhouette, not a comb)
-      float cell = floor(x * 0.42 + seed * 2.3);
-      float f = fract(x * 0.42 + seed * 2.3);
-      float center = 0.3 + 0.4 * hash(vec2(cell, seed));
-      float sharp = 1.7 + 1.8 * hash(vec2(cell, seed + 1.0));
-      float peak = pow(max(1.0 - abs(f - center) * 2.35, 0.0), sharp);
-      peak *= 0.45 + 0.55 * hash(vec2(cell, seed + 2.0));
-
-      // Occasional shoulder peak in same cell
-      float shoulder = pow(max(1.0 - abs(f - fract(center + 0.38)) * 3.2, 0.0), 2.8);
-      shoulder *= 0.25 * hash(vec2(cell, seed + 3.0));
-
-      // Light ridged detail on flanks only (keeps valleys empty)
-      float detail = pow(1.0 - abs(fbm(vec2(x * 1.8 + seed, seed)) * 2.0 - 1.0), 4.5) * 0.07;
-
-      return clamp(peak + shoulder + detail, 0.0, 1.2);
+      float h = 0.0;
+      h += pow(max(1.0 - abs(fract(x * 0.31 + seed) - 0.5) * 1.55, 0.0), 1.65) * 0.55;
+      h += pow(max(1.0 - abs(fract(x * 0.55 + seed * 1.7) - 0.42) * 1.9, 0.0), 1.9) * 0.38;
+      h += pow(max(1.0 - abs(fract(x * 0.9 + seed * 0.6) - 0.58) * 2.2, 0.0), 2.2) * 0.22;
+      h += (fbm(vec2(x * 1.35 + seed, seed * 2.1)) - 0.5) * 0.12;
+      return clamp(h, 0.0, 1.2);
     }
 
-    // One clear distant white pyramid
+    // Distant snow summit — wide dome, not a spike
     float farPeak(float x) {
-      return pow(max(1.0 - abs(x - 0.08) * 3.6, 0.0), 2.8);
+      return pow(max(1.0 - abs(x) * 1.55, 0.0), 1.85);
     }
 
-    // Layered RANGE silhouettes with air between them (not a solid heightfield mass)
-    vec3 paintMountains(vec2 uv, float aspect, float rise, vec3 skyCol, float groundY) {
-      if (rise < 0.01) return skyCol;
+    vec3 paintMountains(vec2 uv, float aspect, float rise, vec3 skyCol, float groundY, float pullBack) {
+      if (rise < 0.001) return skyCol;
       vec3 col = skyCol;
-      float mousePar = (u_mouse.x - 0.5);
+      float mousePar = u_mouse.x - 0.5;
 
-      // 4 ranges: 0 farthest (white peak) … 3 nearest
-      for (int i = 0; i < 4; i++) {
-        float fi = float(i);
-        float t = fi / 3.0; // 0 far … 1 near
+      // Full valley height shrinks toward a thin distant ridge as we approach the sea
+      float scale = rise * mix(1.0, 0.22, pullBack);
+      float hFar = (0.42 + mountainHeight((uv.x + mousePar * 0.012) * aspect * 1.15, 2.1) * 0.28
+                 + farPeak(uv.x * 2.0 - 1.0 + mousePar * 0.02) * 0.34) * scale;
+      float hMid = (0.28 + mountainHeight((uv.x + mousePar * 0.035) * aspect * 1.3 + 1.8, 5.4) * 0.36) * scale;
+      float hNear = (0.12 + mountainHeight((uv.x + mousePar * 0.07) * aspect * 1.55 + 3.6, 8.7) * 0.5) * scale;
+      float hHill = (0.055 + fbm(vec2(uv.x * aspect * 2.2, 1.4)) * 0.075) * scale;
 
-        float parallax = mousePar * mix(0.01, 0.08, t);
-        float x = (uv.x + parallax) * aspect * mix(1.15, 1.6, t) + fi * 2.6 + 0.5;
+      float yFar = groundY + hFar;
+      float yMid = groundY + hMid;
+      float yNear = groundY + hNear;
+      float yHill = groundY + hHill;
+      float landTop = max(yHill, max(yFar, max(yMid, yNear)));
 
-        // Far ranges sit near horizon; near ranges are taller in frame but leave sky gaps
-        float base = mix(0.42, 0.12, t) + groundY * 0.04;
-        float amp = mix(0.14, 0.4, pow(t, 0.75));
-        float ridge = base + mountainHeight(x, 3.0 + fi * 3.1) * amp;
-
-        if (i == 0) {
-          float px = (uv.x + mousePar * 0.01) * 2.0 - 1.0;
-          ridge += farPeak(px) * 0.32 * rise;
+      if (uv.y < landTop && uv.y >= groundY - 0.002) {
+        // Soil / foothills — always under the ranges
+        if (uv.y < yHill) {
+          float ht = clamp((uv.y - groundY) / max(hHill, 0.001), 0.0, 1.0);
+          col = mix(vec3(0.07, 0.07, 0.075), vec3(0.14, 0.13, 0.12), ht);
         }
 
-        ridge = mix(groundY - 0.3, ridge, rise);
+        if (uv.y < yFar) {
+          float ht = clamp((uv.y - groundY) / max(hFar, 0.001), 0.0, 1.0);
+          vec3 rock = mix(vec3(0.28, 0.3, 0.34), vec3(0.72, 0.75, 0.8), pow(ht, 1.25));
+          float snow = smoothstep(0.58, 0.93, ht) * (1.0 - pullBack * 0.65);
+          rock = mix(rock, vec3(0.92, 0.94, 0.96), snow * 0.8);
+          float edge = smoothstep(yFar + 0.018, yFar - 0.008, uv.y);
+          col = mix(col, mix(rock, skyCol, 0.1 * (1.0 - pullBack)), edge);
+        }
 
-        // Only paint a "slab" of mountain under the ridge down toward ground,
-        // but leave atmospheric gaps: stop short so farther ranges show through valleys
-        float slabBottom = mix(base - 0.02, groundY, 0.55 + 0.35 * t);
-        if (uv.y < ridge && uv.y > slabBottom) {
-          // Flat silhouette colors by depth (poster ranges)
-          vec3 rock = vec3(0.1, 0.095, 0.1);
-          if (i == 0) rock = vec3(0.62, 0.66, 0.72);
-          else if (i == 1) rock = vec3(0.4, 0.42, 0.48);
-          else if (i == 2) rock = vec3(0.22, 0.21, 0.24);
+        if (uv.y < yMid) {
+          float ht = clamp((uv.y - groundY) / max(hMid, 0.001), 0.0, 1.0);
+          vec3 rock = mix(vec3(0.1, 0.105, 0.115), vec3(0.4, 0.42, 0.46), pow(ht, 1.05));
+          float edge = smoothstep(yMid + 0.016, yMid - 0.005, uv.y);
+          col = mix(col, rock, edge);
+        }
 
-          // Simple side light without turning it into a cone field
-          float nx = mountainHeight(x + 0.02, 3.0 + fi * 3.1) - mountainHeight(x - 0.02, 3.0 + fi * 3.1);
-          rock *= 0.85 + 0.2 * clamp(0.5 - nx * 1.5, 0.0, 1.0);
-
-          // Snow cap near tip
-          float tip = smoothstep(ridge - amp * 0.35, ridge, uv.y);
-          float snow = tip * tip * mix(1.0, 0.25, t);
-          if (i == 0) {
-            float px = (uv.x + mousePar * 0.01) * 2.0 - 1.0;
-            snow = max(snow, farPeak(px) * tip * 1.8);
-          }
-          rock = mix(rock, vec3(0.95, 0.97, 1.0), clamp(snow, 0.0, 1.0));
-
-          col = rock;
+        if (uv.y < yNear) {
+          float ht = clamp((uv.y - groundY) / max(hNear, 0.001), 0.0, 1.0);
+          vec3 rock = mix(vec3(0.03, 0.032, 0.036), vec3(0.16, 0.165, 0.18), pow(ht, 0.9));
+          float edge = smoothstep(yNear + 0.02, yNear - 0.004, uv.y);
+          col = mix(col, rock, edge * mix(1.0, 0.35, pullBack));
         }
       }
 
-      // Soft valley mist only near ground
-      float fog = exp(-(uv.y - groundY) * 5.0) * 0.25 * rise;
-      col = mix(col, vec3(0.55, 0.6, 0.66), clamp(fog, 0.0, 0.35));
+      // Soft mist binding land to sky so the rise never reads as empty air
+      float mistBand = exp(-abs(uv.y - landTop) * 14.0) * rise * (1.0 - pullBack * 0.5);
+      col = mix(col, mix(skyCol, vec3(0.45, 0.5, 0.55), 0.35), mistBand * 0.45);
+      float valleyFog = exp(-max(uv.y - groundY, 0.0) * 3.5) * 0.28 * rise;
+      col = mix(col, vec3(0.48, 0.52, 0.58), clamp(valleyFog, 0.0, 0.35));
       return col;
     }
 
-    // Perspective ocean: near (bottom) = big waves + foam, far = dense ripples, horizon = mountain ranges
-    vec3 oceanScene(vec2 uv, float aspect, float waterLine, float mtAmt) {
-      vec3 sky = mix(vec3(0.55, 0.7, 0.82), vec3(0.12, 0.22, 0.38), pow(clamp((uv.y - waterLine) / max(1.0 - waterLine, 0.001), 0.0, 1.0), 0.85));
-      vec3 col = sky;
-
-      // Mountain ranges beyond the water — same perspective system, seated on horizon
-      if (uv.y >= waterLine) {
-        col = paintMountains(uv, aspect, mtAmt, sky, waterLine);
-        col = mix(col, vec3(0.45, 0.6, 0.7), exp(-abs(uv.y - waterLine) * 40.0) * 0.4);
-        return col;
-      }
-
+    vec3 oceanWater(vec2 uv, float aspect, float waterLine) {
       float depth = clamp((waterLine - uv.y) / max(waterLine, 0.001), 0.0, 1.0);
       float persp = pow(depth, 1.35);
 
       vec3 deep = vec3(0.01, 0.07, 0.12);
       vec3 mid = vec3(0.02, 0.2, 0.3);
       vec3 shallow = vec3(0.05, 0.32, 0.4);
-      col = mix(mix(shallow, mid, persp), deep, pow(persp, 1.2));
+      vec3 col = mix(mix(shallow, mid, persp), deep, pow(persp, 1.2));
       col += vec3(0.25, 0.4, 0.5) * exp(-depth * 14.0) * 0.35;
 
       float waves = 0.0;
@@ -1215,15 +1193,12 @@ body,
         float speed = mix(1.4, 0.55, rowDepth);
         float phase = uv.x * aspect * dens + u_time * speed + u_mouse.x * 1.8 + fi * 1.7;
         float y = row + sin(phase) * amp + sin(phase * 2.1 + fi) * amp * 0.35;
-        float sharpness = mix(70.0, 18.0, rowDepth);
-        float line = exp(-abs(uv.y - y) * sharpness);
+        float line = exp(-abs(uv.y - y) * mix(70.0, 18.0, rowDepth));
         float crest = smoothstep(0.2, 0.95, sin(phase) * 0.5 + 0.5);
         waves += line * mix(0.25, 0.7, rowDepth);
-        // Sea foam on crests — denser near camera
         foam += line * crest * mix(0.12, 0.85, rowDepth);
       }
 
-      // Clumpy foam patches near the viewer (not spark rectangles)
       float foamPatch = fbm(vec2(uv.x * aspect * 3.5 - u_time * 0.15, uv.y * 6.0));
       foam += smoothstep(0.55, 0.8, foamPatch) * persp * 0.35;
 
@@ -1231,8 +1206,6 @@ body,
       col += vec3(0.12, 0.45, 0.55) * waves;
       col += vec3(0.04, 0.1, 0.12) * chop * persp * 0.35;
       col = mix(col, vec3(0.88, 0.95, 0.98), clamp(foam, 0.0, 0.85));
-
-      col = mix(col, vec3(0.12, 0.14, 0.18), exp(-depth * 10.0) * 0.2 * mtAmt);
       return col;
     }
 
@@ -1241,47 +1214,59 @@ body,
       float aspect = u_res.x / max(u_res.y, 1.0);
       float w = clamp(u_world, 0.0, 1.0);
 
-      float mtRise = smoothstep(0.18, 0.52, w);
-      float auroraAmt = 1.0 - smoothstep(0.28, 0.62, w);
-      float dawnAmt = smoothstep(0.22, 0.58, w);
-      float windAmt = smoothstep(0.25, 0.55, w) * (1.0 - smoothstep(0.7, 0.92, w));
-      float waterAmt = smoothstep(0.52, 0.9, w);
-      float waterLine = mix(-0.2, 0.58, waterAmt);
+      // One continuous descent: sky → rising land → land settles on horizon as sea takes foreground
+      float landAmt = smoothstep(0.12, 0.4, w);
+      float auroraAmt = 1.0 - smoothstep(0.24, 0.56, w);
+      float dawnAmt = smoothstep(0.18, 0.52, w);
+      float windAmt = smoothstep(0.2, 0.48, w) * (1.0 - smoothstep(0.68, 0.92, w));
+      float waterAmt = smoothstep(0.5, 0.96, w);
 
-      // --- Sky base: night -> dawn ---
+      // Waterline climbs from below; mountain floor tracks it so ranges sink behind the horizon
+      float waterLine = mix(-0.12, 0.58, waterAmt);
+      float groundY = max(0.0, waterLine);
+      // Slow recession — not a hard biome cut
+      float pullBack = smoothstep(0.46, 0.98, w);
+
+      // --- Sky ---
       vec3 night = mix(vec3(0.01, 0.025, 0.04), vec3(0.004, 0.01, 0.03), uv.y);
       vec3 dawn = mix(vec3(0.86, 0.62, 0.42), vec3(0.35, 0.48, 0.62), pow(uv.y, 0.85));
       dawn += vec3(1.0, 0.7, 0.35) * exp(-length(vec2((uv.x - 0.72) * aspect, uv.y - 0.4) * vec2(2.2, 3.5)) * 3.5) * 0.5;
       vec3 col = mix(night, dawn, dawnAmt);
 
+      // Pre-land haze: atmosphere thickens in the lower half before rock appears
+      float preLand = smoothstep(0.08, 0.28, w) * (1.0 - landAmt * 0.85);
+      float lowHaze = smoothstep(0.55, 0.0, uv.y) * preLand;
+      col = mix(col, vec3(0.16, 0.15, 0.14), lowHaze * 0.55);
+      col = mix(col, vec3(0.35, 0.38, 0.42), exp(-abs(uv.y - 0.18) * 8.0) * preLand * 0.35);
+
       vec2 cell = floor(uv * vec2(u_res.x / 70.0, u_res.y / 70.0));
       float star = step(0.997, hash(cell)) * (1.0 - dawnAmt);
       col += vec3(0.9, 0.95, 1.0) * star * (0.65 + 0.35 * sin(u_time * 3.0 + hash(cell) * 50.0));
-
       col += sampleAurora(uv, aspect) * auroraAmt;
 
       float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
       col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * smoothstep(0.35, 0.8, uv.y) * windAmt * 0.2;
 
-      // --- Perspective mountain ranges (valley view before ocean takes over) ---
-      if (mtRise > 0.01 && waterAmt < 0.75) {
-        vec3 ranges = paintMountains(uv, aspect, mtRise, col, 0.0);
-        float landBlend = 1.0 - smoothstep(0.45, 0.75, waterAmt);
-        // Don't keep land rock under rising water
-        if (uv.y >= waterLine || waterAmt < 0.15) {
-          col = mix(col, ranges, landBlend);
+      // --- Land grows upward from groundY, then shrinks onto the waterline ---
+      if (landAmt > 0.001) {
+        vec3 land = paintMountains(uv, aspect, landAmt, col, groundY, pullBack);
+        if (uv.y >= waterLine) {
+          col = mix(col, land, smoothstep(0.0, 0.2, landAmt));
+          // Soft sea-horizon blend (mountains read as distant ridge, not a cut)
+          float horizonGlow = exp(-abs(uv.y - waterLine) * 22.0) * waterAmt;
+          col = mix(col, vec3(0.42, 0.55, 0.62), horizonGlow * 0.4);
+        } else if (waterAmt < 0.15) {
+          col = mix(col, land, landAmt);
         }
       }
 
-      // --- Ocean seascape: foam waves toward multi-ridge white-peak horizon ---
-      if (waterAmt > 0.05) {
-        float seaBlend = smoothstep(0.05, 0.55, waterAmt);
-        vec3 sea = oceanScene(uv, aspect, waterLine, clamp(mtRise * 0.5 + waterAmt, 0.0, 1.0));
-        if (uv.y < waterLine) {
-          col = mix(col, sea, seaBlend);
-        } else {
-          col = mix(col, sea, smoothstep(0.5, 0.85, waterAmt));
-        }
+      // --- Sea takes the foreground; same mountain pass stays as the far ridge ---
+      if (waterAmt > 0.015 && uv.y < waterLine) {
+        vec3 water = oceanWater(uv, aspect, waterLine);
+        float cover = smoothstep(0.015, 0.45, waterAmt);
+        // Soft shoreline so mountains don't snap away
+        float shore = smoothstep(waterLine, waterLine - 0.04, uv.y);
+        col = mix(col, water, cover * mix(0.65, 1.0, shore));
       }
 
       float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
@@ -1593,6 +1578,6 @@ body,
   requestAnimationFrame(frame);
 })();
 
-  </script>
+</script>
 </body>
 </html>
