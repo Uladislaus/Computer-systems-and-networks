@@ -66,7 +66,8 @@ body.is-touch {
   cursor: auto;
 }
 
-body.is-touch .cursor {
+body.is-touch .cursor,
+body.is-touch .cursor-ring {
   display: none !important;
 }
 
@@ -109,38 +110,52 @@ body.is-touch a {
   transform: translateZ(0);
 }
 
-/* One-element cursor: dot + ring via box-shadow (no second DOM layer) */
-.cursor {
+/* Cursor: green dot + lagging ring; dot turns white on interactive hover */
+.cursor,
+.cursor-ring {
   position: fixed;
   top: 0;
   left: 0;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
   border-radius: 50%;
   pointer-events: none;
   z-index: 100;
   opacity: 0;
-  background: #3dffb5;
-  box-shadow:
-    0 0 0 1px rgba(61, 255, 181, 0.35),
-    0 0 0 14px rgba(61, 255, 181, 0.12),
-    0 0 14px rgba(61, 255, 181, 0.7);
-  transition: box-shadow 0.2s ease, opacity 0.2s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease;
 }
 
-body.is-cursor-ready .cursor {
+.cursor {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #3dffb5;
+  box-shadow: 0 0 12px rgba(61, 255, 181, 0.8);
+  transition: background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.cursor-ring {
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border: 1.5px solid rgba(61, 255, 181, 0.55);
+  background: rgba(61, 255, 181, 0.03);
+  transition: width 0.22s ease, height 0.22s ease, margin 0.22s ease, border-color 0.22s ease, opacity 0.2s ease;
+}
+
+body.is-cursor-ready .cursor,
+body.is-cursor-ready .cursor-ring {
   opacity: 1;
 }
 
 body.is-hover .cursor {
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  box-shadow:
-    0 0 0 1px rgba(61, 255, 181, 0.55),
-    0 0 0 22px rgba(61, 255, 181, 0.16),
-    0 0 18px rgba(61, 255, 181, 0.85);
+  background: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.75);
+  transform: scale(1.15);
+}
+
+body.is-hover .cursor-ring {
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-color: rgba(255, 255, 255, 0.7);
 }
 
 .progress {
@@ -753,7 +768,8 @@ body,
     cursor: auto;
   }
 
-  .cursor {
+  .cursor,
+  .cursor-ring {
     display: none !important;
   }
 
@@ -815,6 +831,7 @@ body,
 </head>
 <body data-world="sky">
   <div class="cursor" id="cursor" aria-hidden="true"></div>
+  <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
 
   <canvas id="aurora" aria-hidden="true"></canvas>
 
@@ -984,6 +1001,7 @@ body,
   const canvas = document.getElementById("aurora");
   const progress = document.getElementById("progress");
   const cursor = document.getElementById("cursor");
+  const cursorRing = document.getElementById("cursor-ring");
   const soundBtn = document.getElementById("sound");
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
@@ -1098,32 +1116,72 @@ body,
       return mix(-0.25, h, rise);
     }
 
-    vec3 oceanColor(vec2 uv, float aspect, float waterLine) {
-      float depth = clamp((waterLine - uv.y) / max(waterLine, 0.001), 0.0, 1.0);
-      vec3 deep = vec3(0.01, 0.08, 0.14);
-      vec3 teal = vec3(0.03, 0.28, 0.36);
-      vec3 foamCol = vec3(0.85, 0.95, 1.0);
-      vec3 col = mix(teal, deep, pow(depth, 0.65));
+    // Perspective ocean: near (bottom) = big waves, far (horizon) = dense ripples + mountain silhouette
+    vec3 oceanScene(vec2 uv, float aspect, float waterLine, float mtAmt) {
+      vec3 sky = mix(vec3(0.55, 0.7, 0.82), vec3(0.12, 0.22, 0.38), pow(clamp((uv.y - waterLine) / max(1.0 - waterLine, 0.001), 0.0, 1.0), 0.85));
+      vec3 col = sky;
+
+      // Distant mountain ridge sitting ON the horizon
+      if (uv.y >= waterLine) {
+        float x = uv.x * aspect * 1.35 + (u_mouse.x - 0.5) * 0.08;
+        float ridge = waterLine + 0.02 + mountainHeight(x, 4.2) * 0.11 * mtAmt;
+        float farRidge = waterLine + 0.01 + mountainHeight(x * 1.3 + 2.0, 7.1) * 0.07 * mtAmt;
+        if (uv.y < ridge) {
+          col = mix(vec3(0.1, 0.12, 0.16), vec3(0.2, 0.18, 0.2), (uv.y - waterLine) * 8.0);
+        } else if (uv.y < farRidge) {
+          col = mix(col, vec3(0.16, 0.18, 0.24), 0.85);
+        }
+        // soft haze just above water
+        col = mix(col, vec3(0.45, 0.6, 0.7), exp(-abs(uv.y - waterLine) * 40.0) * 0.45);
+        return col;
+      }
+
+      // Looking across the water toward horizon
+      float depth = clamp((waterLine - uv.y) / max(waterLine, 0.001), 0.0, 1.0); // 0 near horizon, 1 near camera
+      // perspective factor: compress rows toward horizon
+      float persp = pow(depth, 1.35);
+
+      vec3 deep = vec3(0.01, 0.07, 0.12);
+      vec3 mid = vec3(0.02, 0.2, 0.3);
+      vec3 shallow = vec3(0.05, 0.32, 0.4);
+      col = mix(mix(shallow, mid, persp), deep, pow(persp, 1.2));
+
+      // Horizon reflection band
+      col += vec3(0.25, 0.4, 0.5) * exp(-depth * 14.0) * 0.35;
 
       float waves = 0.0;
       float foam = 0.0;
-      for (int i = 0; i < 6; i++) {
+      // More wave rows, spacing grows toward camera (perspective)
+      for (int i = 0; i < 12; i++) {
         float fi = float(i);
-        float row = waterLine - 0.04 - fi * 0.08;
-        float dens = 6.0 + fi * 4.0;
-        float amp = 0.012 + fi * 0.004;
-        float phase = uv.x * aspect * dens + u_time * (0.8 + fi * 0.15) + u_mouse.x * 2.0 + fi;
-        float y = row + sin(phase) * amp + sin(phase * 2.3) * amp * 0.35;
-        float line = exp(-abs(uv.y - y) * (40.0 + fi * 12.0));
-        waves += line * (0.45 - fi * 0.04);
-        foam += line * smoothstep(0.2, 0.9, sin(phase) * 0.5 + 0.5) * 0.35;
+        // cumulative perspective spacing from horizon down
+        float t = (fi + 1.0) / 12.0;
+        float rowDepth = pow(t, 1.55);
+        float row = waterLine - rowDepth * waterLine * 0.98;
+        float dens = mix(28.0, 3.5, rowDepth);   // dense far, sparse near
+        float amp = mix(0.004, 0.028, rowDepth); // small far, tall near
+        float speed = mix(1.4, 0.55, rowDepth);
+        float phase = uv.x * aspect * dens + u_time * speed + u_mouse.x * 1.8 + fi * 1.7;
+        float y = row + sin(phase) * amp + sin(phase * 2.1 + fi) * amp * 0.35;
+        float sharpness = mix(70.0, 18.0, rowDepth);
+        float line = exp(-abs(uv.y - y) * sharpness);
+        float crest = smoothstep(0.15, 0.95, sin(phase) * 0.5 + 0.5);
+        waves += line * mix(0.25, 0.7, rowDepth);
+        foam += line * crest * mix(0.15, 0.55, rowDepth);
       }
-      float chop = fbm(vec2(uv.x * aspect * 10.0 - u_time * 0.5, uv.y * 20.0));
-      col += vec3(0.15, 0.55, 0.65) * waves;
-      col += vec3(0.05, 0.12, 0.14) * chop * depth;
-      col = mix(col, foamCol, clamp(foam, 0.0, 0.7));
-      col += step(0.92, hash(floor(uv * vec2(90.0, 40.0) + u_time))) * 0.12 * (1.0 - depth);
-      col = mix(col, vec3(0.55, 0.7, 0.8), exp(-abs(uv.y - waterLine) * 30.0) * 0.35);
+
+      // gentle surface chop — no blocky scrolling cells
+      float chop = fbm(vec2(uv.x * aspect * mix(14.0, 4.0, persp) - u_time * 0.25, uv.y * mix(30.0, 8.0, persp)));
+      col += vec3(0.12, 0.45, 0.55) * waves;
+      col += vec3(0.04, 0.1, 0.12) * chop * persp * 0.35;
+      col = mix(col, vec3(0.82, 0.93, 0.98), clamp(foam, 0.0, 0.75));
+
+      // Tiny specular sparks (single pixels feel, not rectangles)
+      float spark = step(0.996, hash(floor(uv * u_res.xy * 0.35)));
+      col += spark * 0.2 * (1.0 - persp);
+
+      // Mountain reflection tint near horizon
+      col = mix(col, vec3(0.12, 0.14, 0.18), exp(-depth * 10.0) * 0.2 * mtAmt);
       return col;
     }
 
@@ -1136,13 +1194,14 @@ body,
       // 0.00–0.22  pure aurora night
       // 0.18–0.55  mountains rise under aurora (merged)
       // 0.35–0.65  aurora fades, dawn/wind takes the sky
-      // 0.55–0.95  ocean floods valleys, peaks become coast
+      // 0.55–0.95  ocean floods; view becomes seascape toward mountain horizon
       float mtRise = smoothstep(0.18, 0.52, w);
       float auroraAmt = 1.0 - smoothstep(0.28, 0.62, w);
       float dawnAmt = smoothstep(0.22, 0.58, w);
       float windAmt = smoothstep(0.25, 0.55, w) * (1.0 - smoothstep(0.7, 0.92, w));
       float waterAmt = smoothstep(0.52, 0.9, w);
-      float waterLine = mix(-0.2, 0.7, waterAmt);
+      // Final seascape: waterline sits mid/upper so we look toward horizon
+      float waterLine = mix(-0.2, 0.58, waterAmt);
 
       // --- Sky base: night -> dawn ---
       vec3 night = mix(vec3(0.01, 0.025, 0.04), vec3(0.004, 0.01, 0.03), uv.y);
@@ -1163,11 +1222,10 @@ body,
       col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * smoothstep(0.35, 0.8, uv.y) * windAmt * 0.2;
 
       // --- Mountains rise from below; aurora stays ABOVE ridges ---
-      float topRidge = -1.0;
       for (int i = 3; i >= 0; i--) {
         float fi = float(i);
         float ridge = ridgeAt(uv, aspect, fi, mtRise);
-        topRidge = max(topRidge, ridge);
+        // While ocean rises, keep peaks as coast until water covers them
         if (uv.y < ridge && uv.y >= waterLine) {
           vec3 rock = mix(vec3(0.12, 0.13, 0.16), vec3(0.28, 0.24, 0.22), fi / 3.0);
           float snowLine = smoothstep(ridge - 0.12, ridge, uv.y);
@@ -1183,12 +1241,21 @@ body,
       float valleyMist = exp(-max(uv.y, 0.0) * 3.0) * mtRise * (1.0 - waterAmt) * 0.35;
       col = mix(col, vec3(0.6, 0.64, 0.7), valleyMist);
 
-      // --- Ocean floods from below; peaks can remain as coast briefly ---
-      if (uv.y < waterLine) {
-        col = oceanColor(uv, aspect, waterLine);
+      // --- Ocean seascape: perspective waves toward mountain horizon ---
+      if (waterAmt > 0.05) {
+        float seaBlend = smoothstep(0.05, 0.55, waterAmt);
+        // Full ocean scene replaces flooded area; above waterline draws horizon mountains
+        if (uv.y < waterLine + 0.14 * mtRise * waterAmt || waterAmt > 0.75) {
+          vec3 sea = oceanScene(uv, aspect, waterLine, clamp(mtRise + waterAmt, 0.0, 1.0));
+          if (uv.y < waterLine) {
+            col = mix(col, sea, seaBlend);
+          } else if (waterAmt > 0.65) {
+            // fade sky/mountain zone into seascape horizon
+            col = mix(col, sea, smoothstep(0.65, 0.9, waterAmt) * smoothstep(waterLine + 0.2, waterLine, uv.y));
+          }
+        }
       }
 
-      // vignette inside shader (no extra DOM layer over canvas)
       float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
       col *= 0.78 + 0.22 * vig;
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
@@ -1212,7 +1279,6 @@ body,
       antialias: false,
       alpha: false,
       powerPreference: "default",
-      desynchronized: true,
     });
     if (!gl) return null;
 
@@ -1364,12 +1430,31 @@ body,
         if (isTouch || !cursor) return;
         cursor.style.left = `${e.clientX}px`;
         cursor.style.top = `${e.clientY}px`;
+        if (cursorRing) {
+          cursorRing.dataset.tx = String(e.clientX);
+          cursorRing.dataset.ty = String(e.clientY);
+        }
         document.body.classList.add("is-cursor-ready");
       },
       { passive: true }
     );
 
     if (isTouch || !cursor) return;
+
+    if (cursorRing) {
+      let rx = window.innerWidth / 2;
+      let ry = window.innerHeight / 2;
+      const tickRing = () => {
+        const tx = parseFloat(cursorRing.dataset.tx || rx);
+        const ty = parseFloat(cursorRing.dataset.ty || ry);
+        rx += (tx - rx) * 0.16;
+        ry += (ty - ry) * 0.16;
+        cursorRing.style.left = `${rx}px`;
+        cursorRing.style.top = `${ry}px`;
+        requestAnimationFrame(tickRing);
+      };
+      tickRing();
+    }
 
     document.querySelectorAll("a, button, input, .place").forEach((el) => {
       el.addEventListener("pointerenter", () => document.body.classList.add("is-hover"));

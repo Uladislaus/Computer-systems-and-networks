@@ -55,7 +55,8 @@ body.is-touch {
   cursor: auto;
 }
 
-body.is-touch .cursor {
+body.is-touch .cursor,
+body.is-touch .cursor-ring {
   display: none !important;
 }
 
@@ -98,38 +99,52 @@ body.is-touch a {
   transform: translateZ(0);
 }
 
-/* One-element cursor: dot + ring via box-shadow (no second DOM layer) */
-.cursor {
+/* Cursor: green dot + lagging ring; dot turns white on interactive hover */
+.cursor,
+.cursor-ring {
   position: fixed;
   top: 0;
   left: 0;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
   border-radius: 50%;
   pointer-events: none;
   z-index: 100;
   opacity: 0;
-  background: #3dffb5;
-  box-shadow:
-    0 0 0 1px rgba(61, 255, 181, 0.35),
-    0 0 0 14px rgba(61, 255, 181, 0.12),
-    0 0 14px rgba(61, 255, 181, 0.7);
-  transition: box-shadow 0.2s ease, opacity 0.2s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease;
 }
 
-body.is-cursor-ready .cursor {
+.cursor {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #3dffb5;
+  box-shadow: 0 0 12px rgba(61, 255, 181, 0.8);
+  transition: background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.cursor-ring {
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border: 1.5px solid rgba(61, 255, 181, 0.55);
+  background: rgba(61, 255, 181, 0.03);
+  transition: width 0.22s ease, height 0.22s ease, margin 0.22s ease, border-color 0.22s ease, opacity 0.2s ease;
+}
+
+body.is-cursor-ready .cursor,
+body.is-cursor-ready .cursor-ring {
   opacity: 1;
 }
 
 body.is-hover .cursor {
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  box-shadow:
-    0 0 0 1px rgba(61, 255, 181, 0.55),
-    0 0 0 22px rgba(61, 255, 181, 0.16),
-    0 0 18px rgba(61, 255, 181, 0.85);
+  background: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.75);
+  transform: scale(1.15);
+}
+
+body.is-hover .cursor-ring {
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-color: rgba(255, 255, 255, 0.7);
 }
 
 .progress {
@@ -742,7 +757,8 @@ body,
     cursor: auto;
   }
 
-  .cursor {
+  .cursor,
+  .cursor-ring {
     display: none !important;
   }
 
