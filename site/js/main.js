@@ -99,83 +99,85 @@
       return aurora;
     }
 
-    // Very soft massifs — few wide lobes, almost no high-frequency teeth
-    float ridgeProfile(float x, float seed) {
-      float a = sin(x * 0.42 + seed) * 0.5 + 0.5;
-      float b = sin(x * 0.78 + seed * 1.3 + 0.8) * 0.5 + 0.5;
-      float c = fbm(vec2(x * 0.35 + seed, seed));
-      float massif = exp(-pow((x - 0.4) * 0.55, 2.0)) * 0.4;
-      float massif2 = exp(-pow((x + 1.2) * 0.4, 2.0)) * 0.25;
-      return clamp(a * 0.35 + b * 0.25 + c * 0.2 + massif + massif2, 0.0, 1.15);
+    // Soft gaussian massifs — rounded shoulders, not sawtooth needles
+    float massif(float x, float cx, float width, float h) {
+      return h * exp(-pow((x - cx) / max(width, 0.001), 2.0));
     }
 
-    // horizon = land/sky seam. Peaks grow ABOVE it as we approach; ground fills BELOW it.
+    float ridgeProfile(float x, float seed) {
+      // A few wide hills per layer; tiny fbm only for gentle rumple
+      float h = 0.0;
+      h += massif(x, 0.15 + seed * 0.02, 0.28, 0.55);
+      h += massif(x, 0.48 + seed * 0.03, 0.34, 0.95);
+      h += massif(x, 0.82 + seed * 0.02, 0.26, 0.7);
+      h += massif(x, 1.15 + seed * 0.01, 0.3, 0.5);
+      h += fbm(vec2(x * 1.2 + seed, seed)) * 0.08;
+      return clamp(h, 0.0, 1.2);
+    }
+
+    // horizon = land/sky seam. Peaks grow ABOVE it; ground fills BELOW it.
     // pullBack shrinks peaks back onto the horizon (sink behind sea).
     vec3 paintMountains(vec2 uv, float aspect, float rise, vec3 skyCol, float horizon, float pullBack) {
       if (rise < 0.001) return skyCol;
       vec3 col = skyCol;
       float mousePar = u_mouse.x - 0.5;
 
-      // Approach: tall close ranges. Pull-back: only a thin far ridge remains on the horizon.
-      float approach = rise * (1.0 - pullBack * 0.92);
-      float nearAmt = approach * (1.0 - smoothstep(0.2, 0.75, pullBack));
-      float midAmt = approach * (1.0 - smoothstep(0.35, 0.9, pullBack));
-      float farAmt = rise * mix(1.0, 0.55, pullBack);
+      float approach = rise * (1.0 - pullBack * 0.9);
+      float nearAmt = approach * (1.0 - smoothstep(0.15, 0.7, pullBack));
+      float midAmt = approach * (1.0 - smoothstep(0.3, 0.85, pullBack));
+      float farAmt = rise * mix(1.0, 0.45, pullBack);
 
-      float xFar = (uv.x + mousePar * 0.008) * aspect * 0.7 + 0.2;
-      float xMid = (uv.x + mousePar * 0.025) * aspect * 0.85 + 1.4;
-      float xNear = (uv.x + mousePar * 0.05) * aspect * 1.0 + 2.8;
+      float xN = uv.x * aspect + mousePar * 0.04;
+      // Normalize to ~0..1.3 across the frame for stable massif placement
+      float xFar = xN * 0.55 + 0.05;
+      float xMid = xN * 0.65 + 0.1;
+      float xNear = xN * 0.75 + 0.0;
 
-      // Tall soft massifs above the horizon — fill toward the aurora
-      float hFar = (0.12 + ridgeProfile(xFar, 1.1) * 0.5) * farAmt;
-      float hMid = (0.1 + ridgeProfile(xMid, 4.2) * 0.48) * midAmt;
-      float hNear = (0.08 + ridgeProfile(xNear, 7.0) * 0.58) * nearAmt;
+      // Tall enough to meet the aurora — solid bodies, not a thin fence
+      float hFar = (0.16 + ridgeProfile(xFar, 0.2) * 0.42) * farAmt;
+      float hMid = (0.14 + ridgeProfile(xMid, 1.1) * 0.4) * midAmt;
+      float hNear = (0.12 + ridgeProfile(xNear, 2.4) * 0.5) * nearAmt;
 
       float yFar = horizon + hFar;
       float yMid = horizon + hMid;
       float yNear = horizon + hNear;
       float crest = max(yFar, max(yMid, yNear));
 
-      // Ground / valley BELOW horizon — continuous land, never empty air under peaks
+      // Ground below horizon
       if (uv.y < horizon) {
         float depth = clamp((horizon - uv.y) / max(horizon, 0.001), 0.0, 1.0);
-        vec3 soil = mix(vec3(0.12, 0.12, 0.13), vec3(0.04, 0.042, 0.045), pow(depth, 0.85));
-        // Foothill undulation just under the seam
-        float foot = ridgeProfile(uv.x * aspect * 1.2, 0.3) * 0.03 * rise;
-        if (uv.y > horizon - 0.05 - foot) {
-          soil = mix(soil, vec3(0.16, 0.15, 0.14), 0.45);
-        }
+        vec3 soil = mix(vec3(0.14, 0.13, 0.12), vec3(0.035, 0.038, 0.04), pow(depth, 0.8));
         col = mix(col, soil, rise);
       }
 
-      // Peaks rise from the horizon upward into the sky
-      if (uv.y >= horizon - 0.005 && uv.y < crest + 0.04) {
+      // Solid mountain bodies from horizon up — soft crests
+      if (uv.y >= horizon - 0.002 && uv.y < crest + 0.05) {
         if (hFar > 0.001 && uv.y < yFar) {
           float ht = clamp((uv.y - horizon) / max(hFar, 0.001), 0.0, 1.0);
-          vec3 rock = mix(vec3(0.18, 0.19, 0.22), vec3(0.55, 0.58, 0.62), pow(ht, 1.2));
-          rock = mix(rock, vec3(0.82, 0.84, 0.88), smoothstep(0.75, 0.98, ht) * 0.45 * (1.0 - pullBack * 0.6));
-          float edge = smoothstep(yFar + 0.035, yFar - 0.025, uv.y);
-          col = mix(col, mix(rock, skyCol, pullBack * 0.35), edge);
+          vec3 rock = mix(vec3(0.2, 0.21, 0.24), vec3(0.5, 0.52, 0.56), pow(ht, 1.15));
+          rock = mix(rock, vec3(0.78, 0.8, 0.84), smoothstep(0.72, 0.98, ht) * 0.4 * (1.0 - pullBack * 0.5));
+          float edge = smoothstep(yFar + 0.05, yFar - 0.04, uv.y);
+          col = mix(col, mix(rock, skyCol, pullBack * 0.4), edge);
         }
         if (hMid > 0.001 && uv.y < yMid) {
           float ht = clamp((uv.y - horizon) / max(hMid, 0.001), 0.0, 1.0);
-          vec3 rock = mix(vec3(0.08, 0.085, 0.09), vec3(0.32, 0.34, 0.38), pow(ht, 1.05));
-          float edge = smoothstep(yMid + 0.03, yMid - 0.02, uv.y);
+          vec3 rock = mix(vec3(0.1, 0.105, 0.11), vec3(0.3, 0.32, 0.35), pow(ht, 1.0));
+          float edge = smoothstep(yMid + 0.045, yMid - 0.035, uv.y);
           col = mix(col, rock, edge);
         }
         if (hNear > 0.001 && uv.y < yNear) {
           float ht = clamp((uv.y - horizon) / max(hNear, 0.001), 0.0, 1.0);
-          vec3 rock = mix(vec3(0.02, 0.022, 0.025), vec3(0.12, 0.13, 0.14), pow(ht, 0.95));
-          float edge = smoothstep(yNear + 0.035, yNear - 0.018, uv.y);
+          vec3 rock = mix(vec3(0.03, 0.032, 0.035), vec3(0.14, 0.145, 0.16), pow(ht, 0.9));
+          float edge = smoothstep(yNear + 0.05, yNear - 0.03, uv.y);
           col = mix(col, rock, edge);
         }
       }
 
-      // Haze binding crest to sky + soft horizon glow (no empty band)
-      float skyBridge = smoothstep(crest + 0.12, horizon, uv.y) * rise * (1.0 - pullBack * 0.4);
-      col = mix(col, mix(skyCol, vec3(0.3, 0.32, 0.36), 0.35), skyBridge * 0.35);
-      float seam = exp(-abs(uv.y - horizon) * 16.0) * rise;
-      col = mix(col, vec3(0.35, 0.4, 0.45), seam * mix(0.35, 0.55, pullBack));
+      // Soft seam only — no flat grey slab above the crest
+      float seam = exp(-abs(uv.y - horizon) * 14.0) * rise;
+      col = mix(col, vec3(0.32, 0.36, 0.4), seam * mix(0.25, 0.5, pullBack));
+      float crestMist = exp(-abs(uv.y - crest) * 18.0) * rise * (1.0 - pullBack * 0.3);
+      col = mix(col, skyCol, crestMist * 0.2);
       return col;
     }
 
@@ -241,31 +243,31 @@
       dawn += vec3(1.0, 0.7, 0.35) * exp(-length(vec2((uv.x - 0.72) * aspect, uv.y - 0.4) * vec2(2.2, 3.5)) * 3.5) * 0.5;
       vec3 col = mix(night, dawn, dawnAmt);
 
-      // Dense air column from horizon up to aurora — kills the black void
-      float air = smoothstep(horizon - 0.02, 0.72, uv.y) * (1.0 - smoothstep(0.55, 0.95, uv.y));
-      air *= max(horizonHint, landAmt);
-      vec3 airCol = mix(vec3(0.14, 0.13, 0.12), vec3(0.22, 0.28, 0.34), smoothstep(horizon, 0.55, uv.y));
-      airCol = mix(airCol, vec3(0.35, 0.22, 0.28), dawnAmt * 0.25);
-      col = mix(col, airCol, air * 0.7);
-      col = mix(col, vec3(0.4, 0.42, 0.46), exp(-abs(uv.y - horizon) * 5.5) * max(horizonHint, landAmt) * 0.65);
+      // Soft dusk near horizon only — keep sky alive (no flat grey void slab)
+      float dusk = exp(-abs(uv.y - horizon) * 4.0) * max(horizonHint, landAmt);
+      col = mix(col, mix(vec3(0.12, 0.11, 0.1), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.45);
 
       vec2 cell = floor(uv * vec2(u_res.x / 70.0, u_res.y / 70.0));
-      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(horizon + 0.08, 0.6, uv.y);
+      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(horizon + 0.15, 0.65, uv.y);
       col += vec3(0.9, 0.95, 1.0) * star * (0.65 + 0.35 * sin(u_time * 3.0 + hash(cell) * 50.0));
-      // Aurora settles down onto the ridge as we approach — no orphan glow in empty mid-air
-      float auroraShift = -landAmt * 0.14 - pullBack * 0.06;
-      float auroraMask = smoothstep(horizon, horizon + 0.22, uv.y) * auroraAmt;
+
+      // Aurora drops to sit just above the growing ridge
+      float auroraShift = -0.06 - landAmt * 0.18 - pullBack * 0.08;
+      float auroraMask = smoothstep(horizon + 0.08, horizon + 0.35, uv.y) * auroraAmt;
       col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
 
-      float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
-      col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * smoothstep(horizon + 0.05, 0.9, uv.y) * windAmt * 0.18;
-
-      // --- Ridge sits on horizon; peaks grow toward camera, then sink back as sea arrives ---
-      if (landAmt > 0.001 || horizonHint > 0.2) {
-        float rise = max(landAmt, horizonHint * 0.35);
+      // --- Ridge first (so wind/aurora never cut through solid rock as a glowing fence) ---
+      float rise = max(landAmt, horizonHint * 0.4);
+      float crestApprox = horizon + (0.35 + 0.25 * landAmt) * rise * (1.0 - pullBack * 0.7);
+      if (rise > 0.001) {
         vec3 land = paintMountains(uv, aspect, rise, col, horizon, pullBack);
-        col = mix(col, land, smoothstep(0.0, 0.25, rise));
+        col = mix(col, land, smoothstep(0.0, 0.2, rise));
       }
+
+      // Wind streaks only in the sky ABOVE the ridge crest
+      float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
+      float windZone = smoothstep(crestApprox, crestApprox + 0.12, uv.y);
+      col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * windZone * windAmt * 0.16;
 
       // --- Sea replaces ground below horizon; peaks stay above and shrink via pullBack ---
       if (waterAmt > 0.01 && uv.y < horizon + 0.03) {
@@ -324,6 +326,9 @@
       new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
       gl.STATIC_DRAW
     );
+
+    gl.clearColor(0.024, 0.063, 0.094, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
 
     return {
       gl,
