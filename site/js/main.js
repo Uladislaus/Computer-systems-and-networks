@@ -110,82 +110,93 @@
       return col;
     }
 
-    float mountainHeight(float x) {
+    float mountainHeight(float x, float seed) {
       float h = 0.0;
-      h += 0.22 * sin(x * 3.1 + 0.4);
-      h += 0.14 * sin(x * 6.7 + 1.7);
-      h += 0.08 * sin(x * 13.0 + 0.2);
-      h += 0.05 * fbm(vec2(x * 2.4, 2.0));
-      return 0.18 + h * 0.55;
+      h += 0.28 * sin(x * 2.4 + seed);
+      h += 0.18 * sin(x * 5.1 + seed * 2.1);
+      h += 0.1 * sin(x * 11.0 + seed * 0.7);
+      h += 0.08 * fbm(vec2(x * 1.8 + seed, seed));
+      return h;
     }
 
     vec3 ridgeBiome(vec2 uv, float aspect) {
-      // Cold dawn above ridges
-      vec3 zenith = vec3(0.18, 0.28, 0.42);
-      vec3 horizon = vec3(0.72, 0.48, 0.32);
-      vec3 snow = vec3(0.82, 0.88, 0.92);
-      vec3 col = mix(horizon, zenith, smoothstep(0.15, 0.85, uv.y));
-      col = mix(col, snow * 0.55, exp(-abs(uv.y - 0.28) * 10.0) * 0.35);
+      // Clear alpine day/dusk — no aurora ribbons
+      vec3 zenith = vec3(0.35, 0.48, 0.62);
+      vec3 horizon = vec3(0.86, 0.62, 0.42);
+      vec3 col = mix(horizon, zenith, pow(uv.y, 0.85));
 
-      // Wind streaks
-      float wind = fbm(vec2(uv.x * 3.0 - u_time * 0.35 + u_mouse.x, uv.y * 18.0));
-      float streaks = smoothstep(0.55, 0.8, wind) * smoothstep(0.2, 0.7, uv.y) * (1.0 - smoothstep(0.75, 1.0, uv.y));
-      col += vec3(0.95, 0.97, 1.0) * streaks * 0.18;
+      // Sun glow near horizon
+      float sun = exp(-length(vec2((uv.x - 0.72) * aspect, uv.y - 0.38) * vec2(2.2, 3.5)) * 3.5);
+      col += vec3(1.0, 0.7, 0.35) * sun * 0.55;
 
-      // Layered mountain silhouettes
-      for (int i = 0; i < 3; i++) {
+      // Wind streaks across sky
+      float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
+      float streaks = smoothstep(0.62, 0.85, wind) * smoothstep(0.35, 0.75, uv.y);
+      col += vec3(1.0, 0.98, 0.94) * streaks * 0.22;
+
+      // Big readable mountain layers (fill lower half+)
+      for (int i = 0; i < 4; i++) {
         float fi = float(i);
-        float parallax = u_mouse.x * (0.02 + fi * 0.015);
-        float x = uv.x * aspect * (1.0 + fi * 0.15) + parallax + fi * 1.7;
-        float ridge = mountainHeight(x) * (0.85 - fi * 0.18) + fi * 0.04;
-        float mask = smoothstep(ridge, ridge - 0.01, uv.y);
-        vec3 rock = mix(vec3(0.08, 0.1, 0.14), vec3(0.22, 0.2, 0.2), fi / 2.0);
-        rock = mix(rock, vec3(0.55, 0.6, 0.65), smoothstep(ridge - 0.08, ridge, uv.y) * 0.45);
-        col = mix(col, rock, mask * (0.95 - fi * 0.12));
+        float parallax = (u_mouse.x - 0.5) * (0.04 + fi * 0.03);
+        float x = (uv.x + parallax) * aspect * (1.1 + fi * 0.2) + fi * 2.3;
+        float base = 0.42 - fi * 0.07;
+        float ridge = base + mountainHeight(x, 1.0 + fi) * (0.38 - fi * 0.05);
+        float mask = step(uv.y, ridge);
+        vec3 rock = mix(vec3(0.12, 0.13, 0.16), vec3(0.28, 0.24, 0.22), fi / 3.0);
+        float snowLine = smoothstep(ridge - 0.12, ridge, uv.y);
+        rock = mix(rock, vec3(0.78, 0.82, 0.86), snowLine * (0.55 - fi * 0.08));
+        // slope shading
+        float nx = mountainHeight(x + 0.02, 1.0 + fi) - mountainHeight(x - 0.02, 1.0 + fi);
+        rock *= 0.75 + 0.35 * clamp(0.5 - nx * 2.5, 0.0, 1.0);
+        col = mix(col, rock, mask);
       }
 
-      // Valley fog
-      float fog = exp(-uv.y * 4.5) * 0.35;
-      col = mix(col, vec3(0.55, 0.6, 0.68), fog);
+      float fog = exp(-uv.y * 3.2) * 0.4;
+      col = mix(col, vec3(0.65, 0.68, 0.72), fog);
       return col;
     }
 
     vec3 seaBiome(vec2 uv, float aspect) {
-      float mouseLift = (0.5 - u_mouse.y) * 0.04;
-      vec3 deep = vec3(0.01, 0.05, 0.1);
-      vec3 mid = vec3(0.02, 0.18, 0.28);
-      vec3 foamCol = vec3(0.75, 0.9, 0.95);
-      vec3 col = mix(deep, mid, smoothstep(0.0, 0.7, uv.y));
+      // Sky band above waterline
+      float waterLine = 0.58 + (0.5 - u_mouse.y) * 0.03;
+      vec3 skyCol = mix(vec3(0.45, 0.62, 0.78), vec3(0.1, 0.2, 0.35), uv.y);
+      vec3 deep = vec3(0.01, 0.08, 0.14);
+      vec3 teal = vec3(0.03, 0.28, 0.36);
+      vec3 foamCol = vec3(0.85, 0.95, 1.0);
 
-      // Far ocean horizon band
-      float horizon = exp(-abs(uv.y - 0.62) * 18.0);
-      col += vec3(0.15, 0.35, 0.45) * horizon * 0.5;
+      vec3 col = skyCol;
+      if (uv.y < waterLine) {
+        float depth = (waterLine - uv.y) / max(waterLine, 0.001);
+        col = mix(teal, deep, pow(depth, 0.65));
 
-      // Animated wave field
-      float waves = 0.0;
-      float foam = 0.0;
-      for (int i = 0; i < 4; i++) {
-        float fi = float(i);
-        float freq = 4.0 + fi * 3.5;
-        float amp = 0.035 / (1.0 + fi * 0.55);
-        float speed = 0.55 + fi * 0.25;
-        float phase = u_time * speed + uv.x * aspect * freq + fi * 2.1 + u_mouse.x * 1.5;
-        float y = 0.22 + fi * 0.09 + mouseLift + sin(phase) * amp + sin(phase * 1.7 + uv.x * 2.0) * amp * 0.45;
-        float d = uv.y - y;
-        float crest = exp(-pow(d * (28.0 + fi * 10.0), 2.0));
-        waves += crest * (0.55 - fi * 0.08);
-        foam += smoothstep(0.02, 0.0, abs(d)) * smoothstep(0.3, 0.8, sin(phase * 2.0) * 0.5 + 0.5) * (0.35 - fi * 0.05);
+        // Perspective wave lines
+        float waves = 0.0;
+        float foam = 0.0;
+        for (int i = 0; i < 6; i++) {
+          float fi = float(i);
+          float row = waterLine - 0.04 - fi * 0.08;
+          float dens = 6.0 + fi * 4.0;
+          float amp = 0.012 + fi * 0.004;
+          float phase = uv.x * aspect * dens + u_time * (0.8 + fi * 0.15) + u_mouse.x * 2.0 + fi;
+          float y = row + sin(phase) * amp + sin(phase * 2.3) * amp * 0.35;
+          float d = abs(uv.y - y);
+          float line = exp(-d * (40.0 + fi * 12.0));
+          waves += line * (0.45 - fi * 0.04);
+          foam += line * smoothstep(0.2, 0.9, sin(phase) * 0.5 + 0.5) * 0.35;
+        }
+
+        float chop = fbm(vec2(uv.x * aspect * 10.0 - u_time * 0.5, uv.y * 20.0));
+        col += vec3(0.15, 0.55, 0.65) * waves;
+        col += vec3(0.05, 0.12, 0.14) * chop * depth;
+        col = mix(col, foamCol, clamp(foam, 0.0, 0.7));
+
+        // Specular glitter
+        float glitter = step(0.92, hash(floor(uv * vec2(90.0, 40.0) + u_time)));
+        col += glitter * 0.15 * (1.0 - depth);
       }
 
-      // Choppy surface noise
-      float chop = fbm(vec2(uv.x * aspect * 8.0 - u_time * 0.4, uv.y * 14.0 + u_time * 0.15));
-      waves += chop * 0.08 * smoothstep(0.55, 0.05, uv.y);
-
-      col += vec3(0.1, 0.45, 0.55) * waves;
-      col = mix(col, foamCol, clamp(foam, 0.0, 1.0));
-
-      // Depth darkening toward bottom
-      col *= 0.55 + 0.45 * smoothstep(0.0, 0.45, uv.y);
+      // Soft horizon haze
+      col = mix(col, vec3(0.55, 0.7, 0.8), exp(-abs(uv.y - waterLine) * 30.0) * 0.35);
       return col;
     }
 
@@ -199,15 +210,14 @@
 
       // Continuous descent: sky -> ridge -> sea
       float w = clamp(u_world, 0.0, 1.0);
-      float toRidge = smoothstep(0.12, 0.42, w);
-      float toSea = smoothstep(0.48, 0.78, w);
+      float toRidge = smoothstep(0.22, 0.4, w);
+      float toSea = smoothstep(0.62, 0.8, w);
 
       vec3 col = mix(sky, ridge, toRidge);
       col = mix(col, sea, toSea);
 
       float vig = smoothstep(1.35, 0.25, length(uv - 0.5));
-      col *= 0.9 + 0.1 * vig;
-      col = (col - 0.5) * 1.08 + 0.5;
+      col *= 0.92 + 0.08 * vig;
       col = clamp(col, 0.0, 1.0);
       gl_FragColor = vec4(col, 1.0);
     }
@@ -321,11 +331,25 @@
     requestAnimationFrame(frame);
   }
 
+  function remap(v, a, b, c, d) {
+    const t = (v - a) / Math.max(b - a, 0.0001);
+    return c + Math.min(Math.max(t, 0), 1) * (d - c);
+  }
+
   function updateScroll() {
+    const ridgeEl = document.getElementById("ridge");
+    const seaEl = document.getElementById("sea");
+    const y = window.scrollY + window.innerHeight * 0.4;
+    const ridgeTop = ridgeEl ? ridgeEl.offsetTop : window.innerHeight;
+    const seaTop = seaEl ? seaEl.offsetTop : ridgeTop * 2;
     const max = document.documentElement.scrollHeight - window.innerHeight;
-    world = max > 0 ? window.scrollY / max : 0;
-    progress.style.width = `${world * 100}%`;
-    updateWorldUI(world);
+
+    if (y < ridgeTop) world = remap(y, 0, ridgeTop, 0, 0.32);
+    else if (y < seaTop) world = remap(y, ridgeTop, seaTop, 0.32, 0.68);
+    else world = remap(y, seaTop, max + window.innerHeight * 0.4, 0.68, 1);
+
+    progress.style.width = `${(max > 0 ? window.scrollY / max : 0) * 100}%`;
+    updateWorldUI(worldSmooth > 0.01 ? worldSmooth : world);
 
     beats.forEach((beat) => {
       const rect = beat.getBoundingClientRect();
