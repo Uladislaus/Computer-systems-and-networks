@@ -133,40 +133,53 @@
       float nearAmt = approach * (1.0 - smoothstep(0.1, 0.55, pullBack));
       float midAmt = approach * (1.0 - smoothstep(0.25, 0.75, pullBack));
       float farAmt = rise * mix(1.0, 0.4, pullBack);
+      float far2Amt = rise * mix(0.85, 0.3, pullBack);
 
       float xBase = uv.x + mousePar * 0.02;
-      float xFar = xBase * aspect * 0.85;
-      float xMid = xBase * aspect * 1.05 + 0.35;
-      float xNear = xBase * aspect * 1.25 + 0.9;
+      float xFar2 = xBase * aspect * 0.7 - 0.1;
+      float xFar = xBase * aspect * 0.9 + 0.05;
+      float xMid = xBase * aspect * 1.1 + 0.4;
+      float xNear = xBase * aspect * 1.3 + 0.95;
 
-      // Keep crest in the lower half — leave sky / aurora open (refs: ~30% sky)
-      float hFar = (0.05 + ridgeProfile(xFar, 0.15, 0.85) * 0.22) * farAmt;
-      float hMid = (0.03 + ridgeProfile(xMid, 1.4, 0.45) * 0.18) * midAmt;
-      float hNear = (0.02 + ridgeProfile(xNear, 2.8, 0.25) * 0.16) * nearAmt;
+      // Crest stays in lower half — sky/aurora keep the top (refs ~25–35% sky)
+      float hFar2 = (0.04 + ridgeProfile(xFar2, 0.05, 0.7) * 0.2) * far2Amt;
+      float hFar = (0.035 + ridgeProfile(xFar, 0.2, 0.55) * 0.18) * farAmt;
+      float hMid = (0.025 + ridgeProfile(xMid, 1.4, 0.35) * 0.15) * midAmt;
+      float hNear = (0.015 + ridgeProfile(xNear, 2.8, 0.2) * 0.14) * nearAmt;
 
+      float yFar2 = horizon + hFar2;
       float yFar = horizon + hFar;
       float yMid = horizon + hMid;
       float yNear = horizon + hNear;
 
-      // Valley / ground under the whole range
       if (uv.y < horizon) {
         float depth = clamp((horizon - uv.y) / max(horizon, 0.001), 0.0, 1.0);
         vec3 soil = mix(vec3(0.1, 0.11, 0.13), vec3(0.03, 0.035, 0.045), pow(depth, 0.85));
         col = mix(col, soil, rise);
       }
 
-      // --- Far pale ridge (highest tips, snow, atmospheric wash) ---
+      // --- Farthest washed ridge (lavender / snow, strong aerial perspective) ---
+      if (hFar2 > 0.001 && uv.y < yFar2 && uv.y >= horizon - 0.01) {
+        float ht = clamp((uv.y - horizon) / max(hFar2, 0.001), 0.0, 1.0);
+        vec3 rock = mix(vec3(0.42, 0.48, 0.58), vec3(0.7, 0.74, 0.82), pow(ht, 1.05));
+        rock = mix(rock, skyCol, 0.35 + pullBack * 0.2);
+        rock = mix(rock, vec3(0.92, 0.94, 0.97), smoothstep(0.5, 0.9, ht) * 0.7);
+        float edge = smoothstep(yFar2 + 0.022, yFar2 - 0.014, uv.y);
+        col = mix(col, rock, edge);
+        float fog = exp(-abs(uv.y - horizon) * 20.0) * (1.0 - ht) * rise;
+        col = mix(col, mix(skyCol, vec3(0.5, 0.55, 0.65), 0.45), fog * 0.6);
+      }
+
+      // --- Far ridge ---
       if (hFar > 0.001 && uv.y < yFar && uv.y >= horizon - 0.01) {
         float ht = clamp((uv.y - horizon) / max(hFar, 0.001), 0.0, 1.0);
-        vec3 rock = mix(vec3(0.35, 0.4, 0.5), vec3(0.62, 0.68, 0.78), pow(ht, 1.1));
-        rock = mix(rock, skyCol, 0.22 + pullBack * 0.25); // distance haze
-        float snow = smoothstep(0.55, 0.92, ht) * (1.0 - pullBack * 0.4);
-        rock = mix(rock, vec3(0.9, 0.93, 0.97), snow * 0.75);
-        float edge = smoothstep(yFar + 0.02, yFar - 0.012, uv.y);
+        vec3 rock = mix(vec3(0.28, 0.34, 0.45), vec3(0.55, 0.6, 0.7), pow(ht, 1.1));
+        rock = mix(rock, skyCol, 0.18 + pullBack * 0.2);
+        rock = mix(rock, vec3(0.88, 0.9, 0.94), smoothstep(0.58, 0.93, ht) * 0.55 * (1.0 - pullBack * 0.35));
+        float edge = smoothstep(yFar + 0.018, yFar - 0.01, uv.y);
         col = mix(col, rock, edge);
-        // Valley fog hugging this layer's base
-        float fog = exp(-abs(uv.y - horizon) * 22.0) * (1.0 - ht) * rise;
-        col = mix(col, mix(skyCol, vec3(0.45, 0.52, 0.62), 0.5), fog * 0.55);
+        float fog = exp(-abs(uv.y - horizon) * 18.0) * (1.0 - ht) * rise;
+        col = mix(col, mix(skyCol, vec3(0.4, 0.48, 0.58), 0.5), fog * 0.5);
       }
 
       // --- Mid indigo ridge ---
