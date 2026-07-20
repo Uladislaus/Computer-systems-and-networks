@@ -59,6 +59,16 @@ body {
   color: var(--ink);
   background: var(--night);
   overflow-x: hidden;
+  cursor: none;
+}
+
+body.is-touch {
+  cursor: auto;
+}
+
+body.is-touch .cursor,
+body.is-touch .cursor-ring {
+  display: none !important;
 }
 
 a,
@@ -70,6 +80,11 @@ input {
 
 button,
 a {
+  cursor: none;
+}
+
+body.is-touch button,
+body.is-touch a {
   cursor: pointer;
 }
 
@@ -93,22 +108,53 @@ a {
   pointer-events: none;
 }
 
-.grain,
 .vignette {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 1;
-}
-
-.grain {
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-}
-
-.vignette {
   background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+/* Custom cursor — positioned via left/top (not transform) to avoid Windows white-square GPU flash */
+.cursor,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+}
+
+.cursor {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: #3dffb5;
+  box-shadow: 0 0 12px rgba(61, 255, 181, 0.75);
+}
+
+.cursor-ring {
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1.5px solid rgba(61, 255, 181, 0.55);
+  background: rgba(61, 255, 181, 0.04);
+  transition: width 0.2s ease, height 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
+}
+
+body.is-hover .cursor-ring {
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-color: rgba(61, 255, 181, 0.85);
+}
+
+body.is-cursor-ready .cursor,
+body.is-cursor-ready .cursor-ring {
+  opacity: 1;
 }
 
 .progress {
@@ -717,6 +763,15 @@ body,
 }
 
 @media (max-width: 900px) {
+  body {
+    cursor: auto;
+  }
+
+  .cursor,
+  .cursor-ring {
+    display: none !important;
+  }
+
   .altimeter {
     right: 0.65rem;
   }
@@ -774,8 +829,10 @@ body,
   </style>
 </head>
 <body data-world="sky">
+  <div class="cursor" id="cursor" aria-hidden="true"></div>
+  <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
+
   <canvas id="aurora" aria-hidden="true"></canvas>
-  <div class="grain" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
 
   <div class="progress" id="progress" aria-hidden="true"></div>
@@ -943,6 +1000,8 @@ body,
 (() => {
   const canvas = document.getElementById("aurora");
   const progress = document.getElementById("progress");
+  const cursor = document.getElementById("cursor");
+  const cursorRing = document.getElementById("cursor-ring");
   const soundBtn = document.getElementById("sound");
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
@@ -953,6 +1012,7 @@ body,
   const magnetic = [...document.querySelectorAll("[data-magnetic]")];
 
   const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+  if (isTouch) document.body.classList.add("is-touch");
 
   let width = 0;
   let height = 0;
@@ -1309,15 +1369,43 @@ body,
     nodes.forEach((node) => io.observe(node));
   }
 
-  function setupPointer() {
+  function setupCursor() {
     window.addEventListener(
       "pointermove",
       (e) => {
         mouse.tx = e.clientX / Math.max(width, 1);
         mouse.ty = e.clientY / Math.max(height, 1);
+
+        if (isTouch || !cursor || !cursorRing) return;
+        cursor.style.left = `${e.clientX}px`;
+        cursor.style.top = `${e.clientY}px`;
+        // ring follows with slight lag via rAF below
+        cursorRing.dataset.tx = String(e.clientX);
+        cursorRing.dataset.ty = String(e.clientY);
+        document.body.classList.add("is-cursor-ready");
       },
       { passive: true }
     );
+
+    if (isTouch || !cursorRing) return;
+
+    let rx = window.innerWidth / 2;
+    let ry = window.innerHeight / 2;
+    const tickRing = () => {
+      const tx = parseFloat(cursorRing.dataset.tx || rx);
+      const ty = parseFloat(cursorRing.dataset.ty || ry);
+      rx += (tx - rx) * 0.18;
+      ry += (ty - ry) * 0.18;
+      cursorRing.style.left = `${rx}px`;
+      cursorRing.style.top = `${ry}px`;
+      requestAnimationFrame(tickRing);
+    };
+    tickRing();
+
+    document.querySelectorAll("a, button, input, .place").forEach((el) => {
+      el.addEventListener("pointerenter", () => document.body.classList.add("is-hover"));
+      el.addEventListener("pointerleave", () => document.body.classList.remove("is-hover"));
+    });
   }
 
   function setupMagnetic() {
@@ -1426,7 +1514,7 @@ body,
   resize();
   updateScroll();
   setupReveals();
-  setupPointer();
+  setupCursor();
   setupMagnetic();
   setupRail();
   requestAnimationFrame(frame);

@@ -1,6 +1,8 @@
 (() => {
   const canvas = document.getElementById("aurora");
   const progress = document.getElementById("progress");
+  const cursor = document.getElementById("cursor");
+  const cursorRing = document.getElementById("cursor-ring");
   const soundBtn = document.getElementById("sound");
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
@@ -11,6 +13,7 @@
   const magnetic = [...document.querySelectorAll("[data-magnetic]")];
 
   const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+  if (isTouch) document.body.classList.add("is-touch");
 
   let width = 0;
   let height = 0;
@@ -367,15 +370,43 @@
     nodes.forEach((node) => io.observe(node));
   }
 
-  function setupPointer() {
+  function setupCursor() {
     window.addEventListener(
       "pointermove",
       (e) => {
         mouse.tx = e.clientX / Math.max(width, 1);
         mouse.ty = e.clientY / Math.max(height, 1);
+
+        if (isTouch || !cursor || !cursorRing) return;
+        cursor.style.left = `${e.clientX}px`;
+        cursor.style.top = `${e.clientY}px`;
+        // ring follows with slight lag via rAF below
+        cursorRing.dataset.tx = String(e.clientX);
+        cursorRing.dataset.ty = String(e.clientY);
+        document.body.classList.add("is-cursor-ready");
       },
       { passive: true }
     );
+
+    if (isTouch || !cursorRing) return;
+
+    let rx = window.innerWidth / 2;
+    let ry = window.innerHeight / 2;
+    const tickRing = () => {
+      const tx = parseFloat(cursorRing.dataset.tx || rx);
+      const ty = parseFloat(cursorRing.dataset.ty || ry);
+      rx += (tx - rx) * 0.18;
+      ry += (ty - ry) * 0.18;
+      cursorRing.style.left = `${rx}px`;
+      cursorRing.style.top = `${ry}px`;
+      requestAnimationFrame(tickRing);
+    };
+    tickRing();
+
+    document.querySelectorAll("a, button, input, .place").forEach((el) => {
+      el.addEventListener("pointerenter", () => document.body.classList.add("is-hover"));
+      el.addEventListener("pointerleave", () => document.body.classList.remove("is-hover"));
+    });
   }
 
   function setupMagnetic() {
@@ -484,7 +515,7 @@
   resize();
   updateScroll();
   setupReveals();
-  setupPointer();
+  setupCursor();
   setupMagnetic();
   setupRail();
   requestAnimationFrame(frame);
