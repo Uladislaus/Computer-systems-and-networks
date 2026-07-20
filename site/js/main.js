@@ -230,7 +230,8 @@
       float dawnAmt = smoothstep(0.14, 0.48, w);
       float windAmt = smoothstep(0.16, 0.44, w) * (1.0 - smoothstep(0.62, 0.88, w));
       float waterAmt = smoothstep(0.5, 0.96, w);
-      float pullBack = smoothstep(0.5, 0.98, w);
+      // Pull ranges back as soon as the sea starts — avoids a dark slab sitting on the water
+      float pullBack = max(smoothstep(0.48, 0.98, w), smoothstep(0.5, 0.78, waterAmt));
 
       // Horizon mid-low; climbs with the sea so peaks settle on the waterline
       float horizon = mix(0.3, 0.54, waterAmt);
