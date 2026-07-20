@@ -98,13 +98,13 @@ body.is-touch a {
 }
 
 .grain {
-  opacity: 0.08;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   mix-blend-mode: overlay;
 }
 
 .vignette {
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
 }
 
 .progress {
@@ -126,21 +126,22 @@ body.is-touch a {
   border-radius: 50%;
   pointer-events: none;
   z-index: 100;
-  mix-blend-mode: difference;
   transform: translate(-50%, -50%);
   will-change: transform;
 }
 
 .cursor {
-  width: 8px;
-  height: 8px;
-  background: #fff;
+  width: 6px;
+  height: 6px;
+  background: #3dffb5;
+  box-shadow: 0 0 10px rgba(61, 255, 181, 0.7);
 }
 
 .cursor-ring {
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(61, 255, 181, 0.55);
+  background: transparent;
   transition: width 0.25s ease, height 0.25s ease, opacity 0.25s ease;
 }
 
@@ -307,8 +308,7 @@ main,
   padding: 0.95rem 1.35rem;
   border: 1px solid rgba(232, 242, 239, 0.35);
   border-radius: 999px;
-  background: rgba(8, 20, 28, 0.35);
-  backdrop-filter: blur(10px);
+  background: rgba(8, 20, 28, 0.55);
   width: fit-content;
   opacity: 0;
   animation: rise 1s ease 0.9s forwards;
@@ -960,22 +960,31 @@ main,
       mat2 m = mat2(0.8, -0.6, 0.6, 0.8);
       for (int i = 0; i < 5; i++) {
         v += a * noise(p);
-        p = m * p * 2.0;
+        p = m * p * 2.02;
         a *= 0.5;
       }
       return v;
     }
 
+    // Sharp ribbon: bright thin core + vertical curtain rays
     float auroraBand(vec2 uv, float y, float thick, float speed, float seed) {
-      float wind = (u_mouse.x - 0.5) * 1.8;
-      float lift = (0.55 - u_mouse.y) * 0.35 + u_scroll * 0.2;
-      float n = fbm(vec2(uv.x * 2.4 + u_time * speed + wind + seed, seed * 3.1 + u_time * 0.05));
-      float wavy = y + lift + (n - 0.5) * 0.55;
+      float wind = (u_mouse.x - 0.5) * 1.4;
+      float lift = (0.55 - u_mouse.y) * 0.28 + u_scroll * 0.16;
+      float n = fbm(vec2(uv.x * 1.8 + u_time * speed + wind + seed, seed * 2.7));
+      float wavy = y + lift + (n - 0.5) * 0.32;
       float d = abs(uv.y - wavy);
-      float core = smoothstep(thick, 0.0, d);
-      float veil = smoothstep(thick * 2.8, 0.0, d) * 0.45;
-      float curtains = pow(max(0.0, fbm(vec2(uv.x * 8.0 - u_time * speed * 1.4, uv.y * 3.0 + seed)) - 0.28), 1.6);
-      return (core + veil) * (0.55 + curtains * 1.4);
+
+      float core = exp(-pow(d / max(thick * 0.35, 0.001), 2.0) * 4.0);
+      float mid = exp(-pow(d / max(thick, 0.001), 2.0) * 2.2) * 0.55;
+      float edge = exp(-pow(d / max(thick * 1.7, 0.001), 2.0)) * 0.2;
+
+      // Vertical filaments — this is what reads as real aurora, not blur
+      float rays = fbm(vec2(uv.x * 22.0 - u_time * speed * 2.0 + seed, uv.y * 1.2 + seed));
+      rays = smoothstep(0.42, 0.78, rays);
+      float drop = smoothstep(wavy + thick * 2.5, wavy - 0.02, uv.y) *
+                   smoothstep(wavy - 0.55, wavy - 0.05, uv.y);
+
+      return (core * 1.35 + mid + edge) * (0.35 + rays * 1.4) * (0.25 + drop * 1.1);
     }
 
     void main() {
@@ -984,63 +993,41 @@ main,
       vec2 p = uv;
       p.x *= aspect;
 
-      // Deep arctic night
-      vec3 skyTop = vec3(0.01, 0.03, 0.07);
-      vec3 skyMid = vec3(0.02, 0.07, 0.1);
-      vec3 skyBot = vec3(0.015, 0.05, 0.045);
-      vec3 col = mix(skyBot, skyMid, smoothstep(0.0, 0.45, uv.y));
-      col = mix(col, skyTop, smoothstep(0.4, 1.0, uv.y));
+      // Clean dark night — no milky haze
+      vec3 col = mix(vec3(0.01, 0.025, 0.04), vec3(0.004, 0.01, 0.03), uv.y);
 
-      // Soft horizon glow
-      float horizon = exp(-abs(uv.y - 0.18) * 8.0) * 0.12;
-      col += vec3(0.05, 0.12, 0.14) * horizon;
+      // Crisp stars
+      vec2 starUv = uv * vec2(u_res.x / 70.0, u_res.y / 70.0);
+      vec2 cell = floor(starUv);
+      float star = step(0.997, hash(cell));
+      float twinkle = 0.65 + 0.35 * sin(u_time * 3.0 + hash(cell) * 50.0);
+      col += vec3(0.9, 0.95, 1.0) * star * twinkle * smoothstep(0.2, 0.8, uv.y);
 
-      // Stars
-      vec2 starUv = uv * vec2(u_res.x / 90.0, u_res.y / 90.0);
-      float star = step(0.995, hash(floor(starUv)));
-      float twinkle = 0.55 + 0.45 * sin(u_time * 2.0 + hash(floor(starUv)) * 40.0);
-      float starMask = smoothstep(0.15, 0.75, uv.y);
-      col += vec3(0.85, 0.92, 1.0) * star * twinkle * starMask * 0.9;
-
-      // Distant milky dust
-      float dust = fbm(uv * vec2(3.0, 6.0) + u_time * 0.01) * 0.08 * starMask;
-      col += vec3(0.25, 0.35, 0.5) * dust;
-
-      // Aurora curtains
-      float a1 = auroraBand(uv, 0.52, 0.05, 0.07, 1.2);
-      float a2 = auroraBand(uv, 0.62, 0.04, 0.11, 3.7);
-      float a3 = auroraBand(uv, 0.44, 0.06, 0.05, 6.1);
-      float a4 = auroraBand(uv, 0.70, 0.035, 0.14, 8.9);
-
-      vec3 c1 = vec3(0.15, 0.95, 0.55);
-      vec3 c2 = vec3(0.25, 0.75, 1.0);
-      vec3 c3 = vec3(0.45, 1.0, 0.7);
-      vec3 c4 = vec3(0.7, 0.45, 1.0);
+      float a1 = auroraBand(uv, 0.50, 0.028, 0.06, 1.2);
+      float a2 = auroraBand(uv, 0.58, 0.022, 0.10, 3.7);
+      float a3 = auroraBand(uv, 0.42, 0.032, 0.045, 6.1);
+      float a4 = auroraBand(uv, 0.66, 0.018, 0.13, 8.9);
 
       vec3 aurora =
-        c1 * a1 * 0.85 +
-        c2 * a2 * 0.7 +
-        c3 * a3 * 0.55 +
-        c4 * a4 * 0.35;
+        vec3(0.2, 1.0, 0.55) * a1 * 1.15 +
+        vec3(0.15, 0.85, 1.0) * a2 * 0.95 +
+        vec3(0.55, 1.0, 0.65) * a3 * 0.7 +
+        vec3(0.75, 0.4, 1.0) * a4 * 0.45;
 
-      // Vertical shafts
-      float shafts = pow(max(0.0, fbm(vec2(uv.x * 14.0 + u_time * 0.08, uv.y * 0.8)) - 0.4), 2.0);
-      aurora *= 0.75 + shafts * 1.1;
+      // Tight mouse spotlight — not a big soft blob
+      vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
+      float glow = exp(-length((p - m) * vec2(1.6, 2.2)) * 5.0) * 0.22;
+      aurora += vec3(0.25, 1.0, 0.75) * glow;
 
-      // Mouse glow
-      vec2 m = u_mouse;
-      m.x *= aspect;
-      float glow = exp(-length((p - m) * vec2(1.0, 1.4)) * 2.2) * 0.35;
-      aurora += vec3(0.2, 0.9, 0.7) * glow;
+      col += aurora * (1.05 + u_scroll * 0.25);
 
-      col += aurora * (0.85 + u_scroll * 0.35);
+      // Light vignette only
+      float vig = smoothstep(1.35, 0.25, length(uv - 0.5));
+      col *= 0.88 + 0.12 * vig;
 
-      // Vignette
-      float vig = smoothstep(1.25, 0.35, length(uv - 0.5));
-      col *= 0.72 + 0.28 * vig;
-
-      // Mild grade
-      col = pow(max(col, 0.0), vec3(0.95));
+      // Slight contrast punch so ribbons stay sharp
+      col = (col - 0.5) * 1.12 + 0.5;
+      col = clamp(col, 0.0, 1.0);
       gl_FragColor = vec4(col, 1.0);
     }
   `;
