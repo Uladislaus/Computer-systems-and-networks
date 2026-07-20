@@ -7,6 +7,8 @@
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
   const joinStatus = document.getElementById("join-status");
+  const worldLabel = document.getElementById("world-label");
+  const layerDots = [...document.querySelectorAll(".altimeter__track i")];
   const beats = [...document.querySelectorAll(".beat")];
   const magnetic = [...document.querySelectorAll("[data-magnetic]")];
 
@@ -16,12 +18,12 @@
   let width = 0;
   let height = 0;
   let mouse = { x: 0.5, y: 0.42, tx: 0.5, ty: 0.42 };
-  let scrollIntensity = 0;
+  let world = 0;
+  let worldSmooth = 0;
   let audioCtx = null;
   let masterGain = null;
   let soundOn = false;
 
-  /* ---------- WebGL sky ---------- */
   const vertSrc = `
     attribute vec2 a_pos;
     void main() {
@@ -35,7 +37,7 @@
     uniform vec2 u_res;
     uniform float u_time;
     uniform vec2 u_mouse;
-    uniform float u_scroll;
+    uniform float u_world;
 
     float hash(vec2 p) {
       p = fract(p * vec2(123.34, 456.21));
@@ -66,37 +68,24 @@
       return v;
     }
 
-    // Sharp ribbon: bright thin core + vertical curtain rays
     float auroraBand(vec2 uv, float y, float thick, float speed, float seed) {
       float wind = (u_mouse.x - 0.5) * 1.4;
-      float lift = (0.55 - u_mouse.y) * 0.28 + u_scroll * 0.16;
+      float lift = (0.55 - u_mouse.y) * 0.28;
       float n = fbm(vec2(uv.x * 1.8 + u_time * speed + wind + seed, seed * 2.7));
       float wavy = y + lift + (n - 0.5) * 0.32;
       float d = abs(uv.y - wavy);
-
       float core = exp(-pow(d / max(thick * 0.35, 0.001), 2.0) * 4.0);
       float mid = exp(-pow(d / max(thick, 0.001), 2.0) * 2.2) * 0.55;
       float edge = exp(-pow(d / max(thick * 1.7, 0.001), 2.0)) * 0.2;
-
-      // Vertical filaments — this is what reads as real aurora, not blur
-      float rays = fbm(vec2(uv.x * 22.0 - u_time * speed * 2.0 + seed, uv.y * 1.2 + seed));
-      rays = smoothstep(0.42, 0.78, rays);
+      float rays = smoothstep(0.42, 0.78, fbm(vec2(uv.x * 22.0 - u_time * speed * 2.0 + seed, uv.y * 1.2 + seed)));
       float drop = smoothstep(wavy + thick * 2.5, wavy - 0.02, uv.y) *
                    smoothstep(wavy - 0.55, wavy - 0.05, uv.y);
-
       return (core * 1.35 + mid + edge) * (0.35 + rays * 1.4) * (0.25 + drop * 1.1);
     }
 
-    void main() {
-      vec2 uv = gl_FragCoord.xy / u_res.xy;
-      float aspect = u_res.x / max(u_res.y, 1.0);
-      vec2 p = uv;
-      p.x *= aspect;
-
-      // Clean dark night — no milky haze
+    vec3 skyBiome(vec2 uv, float aspect) {
       vec3 col = mix(vec3(0.01, 0.025, 0.04), vec3(0.004, 0.01, 0.03), uv.y);
 
-      // Crisp stars
       vec2 starUv = uv * vec2(u_res.x / 70.0, u_res.y / 70.0);
       vec2 cell = floor(starUv);
       float star = step(0.997, hash(cell));
@@ -114,19 +103,111 @@
         vec3(0.55, 1.0, 0.65) * a3 * 0.7 +
         vec3(0.75, 0.4, 1.0) * a4 * 0.45;
 
-      // Tight mouse spotlight — not a big soft blob
+      vec2 p = vec2(uv.x * aspect, uv.y);
       vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
-      float glow = exp(-length((p - m) * vec2(1.6, 2.2)) * 5.0) * 0.22;
-      aurora += vec3(0.25, 1.0, 0.75) * glow;
+      aurora += vec3(0.25, 1.0, 0.75) * exp(-length((p - m) * vec2(1.6, 2.2)) * 5.0) * 0.22;
+      col += aurora;
+      return col;
+    }
 
-      col += aurora * (1.05 + u_scroll * 0.25);
+    float mountainHeight(float x) {
+      float h = 0.0;
+      h += 0.22 * sin(x * 3.1 + 0.4);
+      h += 0.14 * sin(x * 6.7 + 1.7);
+      h += 0.08 * sin(x * 13.0 + 0.2);
+      h += 0.05 * fbm(vec2(x * 2.4, 2.0));
+      return 0.18 + h * 0.55;
+    }
 
-      // Light vignette only
+    vec3 ridgeBiome(vec2 uv, float aspect) {
+      // Cold dawn above ridges
+      vec3 zenith = vec3(0.18, 0.28, 0.42);
+      vec3 horizon = vec3(0.72, 0.48, 0.32);
+      vec3 snow = vec3(0.82, 0.88, 0.92);
+      vec3 col = mix(horizon, zenith, smoothstep(0.15, 0.85, uv.y));
+      col = mix(col, snow * 0.55, exp(-abs(uv.y - 0.28) * 10.0) * 0.35);
+
+      // Wind streaks
+      float wind = fbm(vec2(uv.x * 3.0 - u_time * 0.35 + u_mouse.x, uv.y * 18.0));
+      float streaks = smoothstep(0.55, 0.8, wind) * smoothstep(0.2, 0.7, uv.y) * (1.0 - smoothstep(0.75, 1.0, uv.y));
+      col += vec3(0.95, 0.97, 1.0) * streaks * 0.18;
+
+      // Layered mountain silhouettes
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float parallax = u_mouse.x * (0.02 + fi * 0.015);
+        float x = uv.x * aspect * (1.0 + fi * 0.15) + parallax + fi * 1.7;
+        float ridge = mountainHeight(x) * (0.85 - fi * 0.18) + fi * 0.04;
+        float mask = smoothstep(ridge, ridge - 0.01, uv.y);
+        vec3 rock = mix(vec3(0.08, 0.1, 0.14), vec3(0.22, 0.2, 0.2), fi / 2.0);
+        rock = mix(rock, vec3(0.55, 0.6, 0.65), smoothstep(ridge - 0.08, ridge, uv.y) * 0.45);
+        col = mix(col, rock, mask * (0.95 - fi * 0.12));
+      }
+
+      // Valley fog
+      float fog = exp(-uv.y * 4.5) * 0.35;
+      col = mix(col, vec3(0.55, 0.6, 0.68), fog);
+      return col;
+    }
+
+    vec3 seaBiome(vec2 uv, float aspect) {
+      float mouseLift = (0.5 - u_mouse.y) * 0.04;
+      vec3 deep = vec3(0.01, 0.05, 0.1);
+      vec3 mid = vec3(0.02, 0.18, 0.28);
+      vec3 foamCol = vec3(0.75, 0.9, 0.95);
+      vec3 col = mix(deep, mid, smoothstep(0.0, 0.7, uv.y));
+
+      // Far ocean horizon band
+      float horizon = exp(-abs(uv.y - 0.62) * 18.0);
+      col += vec3(0.15, 0.35, 0.45) * horizon * 0.5;
+
+      // Animated wave field
+      float waves = 0.0;
+      float foam = 0.0;
+      for (int i = 0; i < 4; i++) {
+        float fi = float(i);
+        float freq = 4.0 + fi * 3.5;
+        float amp = 0.035 / (1.0 + fi * 0.55);
+        float speed = 0.55 + fi * 0.25;
+        float phase = u_time * speed + uv.x * aspect * freq + fi * 2.1 + u_mouse.x * 1.5;
+        float y = 0.22 + fi * 0.09 + mouseLift + sin(phase) * amp + sin(phase * 1.7 + uv.x * 2.0) * amp * 0.45;
+        float d = uv.y - y;
+        float crest = exp(-pow(d * (28.0 + fi * 10.0), 2.0));
+        waves += crest * (0.55 - fi * 0.08);
+        foam += smoothstep(0.02, 0.0, abs(d)) * smoothstep(0.3, 0.8, sin(phase * 2.0) * 0.5 + 0.5) * (0.35 - fi * 0.05);
+      }
+
+      // Choppy surface noise
+      float chop = fbm(vec2(uv.x * aspect * 8.0 - u_time * 0.4, uv.y * 14.0 + u_time * 0.15));
+      waves += chop * 0.08 * smoothstep(0.55, 0.05, uv.y);
+
+      col += vec3(0.1, 0.45, 0.55) * waves;
+      col = mix(col, foamCol, clamp(foam, 0.0, 1.0));
+
+      // Depth darkening toward bottom
+      col *= 0.55 + 0.45 * smoothstep(0.0, 0.45, uv.y);
+      return col;
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / u_res.xy;
+      float aspect = u_res.x / max(u_res.y, 1.0);
+
+      vec3 sky = skyBiome(uv, aspect);
+      vec3 ridge = ridgeBiome(uv, aspect);
+      vec3 sea = seaBiome(uv, aspect);
+
+      // Continuous descent: sky -> ridge -> sea
+      float w = clamp(u_world, 0.0, 1.0);
+      float toRidge = smoothstep(0.12, 0.42, w);
+      float toSea = smoothstep(0.48, 0.78, w);
+
+      vec3 col = mix(sky, ridge, toRidge);
+      col = mix(col, sea, toSea);
+
       float vig = smoothstep(1.35, 0.25, length(uv - 0.5));
-      col *= 0.88 + 0.12 * vig;
-
-      // Slight contrast punch so ribbons stay sharp
-      col = (col - 0.5) * 1.12 + 0.5;
+      col *= 0.9 + 0.1 * vig;
+      col = (col - 0.5) * 1.08 + 0.5;
       col = clamp(col, 0.0, 1.0);
       gl_FragColor = vec4(col, 1.0);
     }
@@ -167,25 +248,29 @@
 
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1, 1, -1, -1, 1,
-      -1, 1, 1, -1, 1, 1,
-    ]), gl.STATIC_DRAW);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW
+    );
 
-    const aPos = gl.getAttribLocation(program, "a_pos");
-    const uniforms = {
-      res: gl.getUniformLocation(program, "u_res"),
-      time: gl.getUniformLocation(program, "u_time"),
-      mouse: gl.getUniformLocation(program, "u_mouse"),
-      scroll: gl.getUniformLocation(program, "u_scroll"),
+    return {
+      gl,
+      program,
+      aPos: gl.getAttribLocation(program, "a_pos"),
+      uniforms: {
+        res: gl.getUniformLocation(program, "u_res"),
+        time: gl.getUniformLocation(program, "u_time"),
+        mouse: gl.getUniformLocation(program, "u_mouse"),
+        world: gl.getUniformLocation(program, "u_world"),
+      },
+      buffer,
     };
-
-    return { gl, program, aPos, uniforms, buffer };
   }
 
   const sky = initWebGL(canvas);
   const modeBadge = document.getElementById("render-mode");
-  if (modeBadge) modeBadge.textContent = sky ? "WebGL небо" : "Canvas fallback";
+  if (modeBadge) modeBadge.textContent = sky ? "WebGL мир" : "fallback";
 
   function resize() {
     width = window.innerWidth;
@@ -195,15 +280,29 @@
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    if (sky) {
-      sky.gl.viewport(0, 0, canvas.width, canvas.height);
-    }
+    if (sky) sky.gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  function worldName(w) {
+    if (w < 0.35) return { id: "sky", label: "слой · небо" };
+    if (w < 0.68) return { id: "ridge", label: "слой · горы" };
+    return { id: "sea", label: "слой · океан" };
+  }
+
+  function updateWorldUI(w) {
+    const info = worldName(w);
+    document.body.dataset.world = info.id;
+    if (worldLabel) worldLabel.textContent = info.label;
+    layerDots.forEach((dot) => {
+      dot.classList.toggle("is-on", dot.dataset.layer === info.id);
+    });
   }
 
   function frame(now) {
     const t = now * 0.001;
     mouse.x += (mouse.tx - mouse.x) * 0.05;
     mouse.y += (mouse.ty - mouse.y) * 0.05;
+    worldSmooth += (world - worldSmooth) * 0.06;
 
     if (sky) {
       const { gl, program, aPos, uniforms, buffer } = sky;
@@ -215,7 +314,7 @@
       gl.uniform2f(uniforms.res, canvas.width, canvas.height);
       gl.uniform1f(uniforms.time, t);
       gl.uniform2f(uniforms.mouse, mouse.x, 1.0 - mouse.y);
-      gl.uniform1f(uniforms.scroll, scrollIntensity);
+      gl.uniform1f(uniforms.world, worldSmooth);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
@@ -224,9 +323,9 @@
 
   function updateScroll() {
     const max = document.documentElement.scrollHeight - window.innerHeight;
-    const ratio = max > 0 ? window.scrollY / max : 0;
-    progress.style.width = `${ratio * 100}%`;
-    scrollIntensity = Math.min(1, window.scrollY / (window.innerHeight * 1.2));
+    world = max > 0 ? window.scrollY / max : 0;
+    progress.style.width = `${world * 100}%`;
+    updateWorldUI(world);
 
     beats.forEach((beat) => {
       const rect = beat.getBoundingClientRect();
@@ -304,6 +403,7 @@
   }
 
   function setupRail() {
+    if (!rail) return;
     let down = false;
     let startX = 0;
     let scrollLeft = 0;
@@ -318,15 +418,13 @@
 
     rail.addEventListener("pointermove", (e) => {
       if (!down) return;
-      const walk = (e.clientX - startX) * 1.2;
-      rail.scrollLeft = scrollLeft - walk;
+      rail.scrollLeft = scrollLeft - (e.clientX - startX) * 1.2;
     });
 
     const stop = () => {
       down = false;
       rail.classList.remove("is-dragging");
     };
-
     rail.addEventListener("pointerup", stop);
     rail.addEventListener("pointercancel", stop);
   }
@@ -385,7 +483,7 @@
       joinStatus.textContent = "Нужен настоящий email.";
       return;
     }
-    joinStatus.textContent = "Ты в листе. Когда небо откроется — напишем.";
+    joinStatus.textContent = "След оставлен. Мир тебя помнит.";
     join.reset();
   });
 

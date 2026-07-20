@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="АВРОРА — экспедиции к северному сиянию. WebGL-небо, тишина и свет.">
-  <title>АВРОРА — северное сияние</title>
+  <meta name="description" content="АВРОРА — спуск через мир: небо, горы, океан. Одно окно — одна вселенная.">
+  <title>АВРОРА — спуск через мир</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body data-world="sky">
   <div class="cursor" id="cursor" aria-hidden="true"></div>
   <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
 
@@ -20,12 +20,21 @@
 
   <div class="progress" id="progress" aria-hidden="true"></div>
 
+  <aside class="altimeter" aria-live="polite">
+    <span class="altimeter__label" id="world-label">слой · небо</span>
+    <div class="altimeter__track">
+      <i class="is-on" data-layer="sky"></i>
+      <i data-layer="ridge"></i>
+      <i data-layer="sea"></i>
+    </div>
+  </aside>
+
   <header class="top">
     <a class="brand" href="#top" data-magnetic>АВРОРА</a>
     <nav class="nav">
-      <a href="#path" data-magnetic>Путь</a>
-      <a href="#places" data-magnetic>Места</a>
-      <a href="#ritual" data-magnetic>Ритуал</a>
+      <a href="#sky" data-magnetic>Небо</a>
+      <a href="#ridge" data-magnetic>Горы</a>
+      <a href="#sea" data-magnetic>Океан</a>
     </nav>
     <button class="sound" id="sound" type="button" data-magnetic aria-pressed="false" aria-label="Звук">
       <span class="sound__bars" aria-hidden="true">
@@ -36,129 +45,129 @@
   </header>
 
   <main id="top">
-    <section class="hero">
+    <section class="hero" id="sky" data-biome="sky">
       <div class="hero__copy">
-        <p class="hero__eyebrow">67° с. ш. · полярная ночь · <span id="render-mode">WebGL небо</span></p>
+        <p class="hero__eyebrow">слой 01 · стратосфера · <span id="render-mode">WebGL мир</span></p>
         <h1 class="hero__title">
           <span class="line"><span>АВРОРА</span></span>
         </h1>
-        <p class="hero__lead">Не смотри на небо. Войди в него.</p>
-        <a class="cta" href="#path" data-magnetic>
-          <span>Начать спуск</span>
+        <p class="hero__lead">Окно браузера — это небосвод. Скролл — спуск сквозь мир.</p>
+        <a class="cta" href="#ridge" data-magnetic>
+          <span>Спуститься ниже</span>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 4v16m0 0l-6-6m6 6l6-6" stroke="currentColor" stroke-width="1.6"/>
           </svg>
         </a>
       </div>
       <div class="hero__meta">
-        <span>shader-небо</span>
-        <span>скролл = глубина</span>
-        <span>мышь = ветер</span>
+        <span>небо + сияние</span>
+        <span>дальше — ветер</span>
+        <span>ещё ниже — волны</span>
       </div>
     </section>
 
-    <section class="chapter" id="path">
+    <section class="chapter biome" id="ridge" data-biome="ridge">
       <div class="chapter__sticky">
-        <p class="chapter__index">01</p>
-        <h2 class="chapter__title">Путь</h2>
+        <p class="chapter__index">02 · тропосфера</p>
+        <h2 class="chapter__title">Хребет</h2>
         <p class="chapter__text">
-          Сначала — тишина. Потом — зелёная волна, которая не подчиняется фотоаппарату.
-          Мы ведём маленькие группы туда, где свет пишет по небу быстрее, чем ты успеваешь моргнуть.
+          Сияние остаётся сверху. Здесь правят ветер и камень.
+          Горы режут горизонт, а воздух становится плотным — его уже можно услышать.
         </p>
       </div>
-      <div class="chapter__track" id="path-track">
+      <div class="chapter__track">
         <article class="beat">
-          <h3>Вылет</h3>
-          <p>Мурманск. Температура падает. Город остаётся позади, как выключенный экран.</p>
+          <h3>Ветер</h3>
+          <p>Потоки режут склоны. Пыль и снег рисуют линии силы в воздухе.</p>
         </article>
         <article class="beat">
-          <h3>Дорога</h3>
-          <p>Триста километров без фонарей. Только фары и дыхание на стекле.</p>
+          <h3>Перевал</h3>
+          <p>Небо ещё видно, но уже чужое — как потолок чужой комнаты.</p>
         </article>
         <article class="beat">
-          <h3>Лагерь</h3>
-          <p>Чай, шерсть, рация. Ждём, пока атмосфера решит, что ты достоин шоу.</p>
+          <h3>Ущелье</h3>
+          <p>Свет ломается о скалы. Тени становятся длиннее тела.</p>
         </article>
         <article class="beat">
-          <h3>Пик</h3>
-          <p>Небо рвётся. Ты забываешь, зачем приехал. Это и есть точка.</p>
+          <h3>Подножие</h3>
+          <p>Камень кончается. Впереди слышен гул — туда тянет вниз.</p>
         </article>
       </div>
     </section>
 
-    <section class="places" id="places">
+    <section class="places biome" id="lands" data-biome="ridge">
       <div class="places__head">
-        <p class="chapter__index">02</p>
-        <h2>Места, где небо гуще</h2>
+        <p class="chapter__index">рельеф</p>
+        <h2>Где ветер громче</h2>
       </div>
       <div class="rail" id="rail">
         <article class="place">
           <div class="place__visual place__visual--1"></div>
           <div class="place__copy">
-            <h3>Териберка</h3>
-            <p>Ветер с Баренцева моря. Сияние ложится на воду, как жидкий неон.</p>
-            <span>68.1°N</span>
+            <h3>Хибины</h3>
+            <p>Острые гребни. Ветер здесь пишет по снегу иероглифы.</p>
+            <span>хребет</span>
           </div>
         </article>
         <article class="place">
           <div class="place__visual place__visual--2"></div>
           <div class="place__copy">
-            <h3>Хибины</h3>
-            <p>Горы режут горизонт. Здесь свет кажется ближе, чем должен.</p>
-            <span>67.6°N</span>
+            <h3>Перевал</h3>
+            <p>Узкая щель между двумя стенами камня и неба.</p>
+            <span>ветер</span>
           </div>
         </article>
         <article class="place">
           <div class="place__visual place__visual--3"></div>
           <div class="place__copy">
-            <h3>Ловозеро</h3>
-            <p>Озеро держит отражение так долго, что кажется — небо утонуло.</p>
-            <span>68.0°N</span>
+            <h3>Плато</h3>
+            <p>Ровная пустота. Облака ползут ниже плеч.</p>
+            <span>туман</span>
           </div>
         </article>
         <article class="place">
           <div class="place__visual place__visual--4"></div>
           <div class="place__copy">
-            <h3>Рыбачий</h3>
-            <p>Край карты. Дальше — только полярная шапка и тишина.</p>
-            <span>69.7°N</span>
+            <h3>Обрыв</h3>
+            <p>Здесь мир ломается — и начинается вода.</p>
+            <span>спуск</span>
           </div>
         </article>
       </div>
-      <p class="places__hint">тяни в сторону · или крути колесо</p>
+      <p class="places__hint">тяни в сторону · мир продолжается ниже</p>
     </section>
 
-    <section class="ritual" id="ritual">
-      <p class="chapter__index">03</p>
+    <section class="ritual biome" id="sea" data-biome="sea">
+      <p class="chapter__index">03 · гидросфера</p>
       <h2 class="ritual__title">
-        <span>Ритуал</span>
-        <span>наблюдения</span>
+        <span>Океан</span>
+        <span>под хребтом</span>
       </h2>
       <div class="ritual__grid">
         <div class="ritual__item">
           <strong>01</strong>
-          <p>Выключаем телефоны. Глазам нужно 20 минут, чтобы увидеть настоящее.</p>
+          <p>Волны идут рядами — как дыхание планеты, замедленное до скролла.</p>
         </div>
         <div class="ritual__item">
           <strong>02</strong>
-          <p>Смотрим не вверх, а по краю горизонта — там сияние рождается раньше.</p>
+          <p>Пена вспыхивает на гребнях. Глубина темнеет быстрее, чем небо.</p>
         </div>
         <div class="ritual__item">
           <strong>03</strong>
-          <p>Молчим. Звук ломает магию быстрее, чем облака.</p>
+          <p>Ты больше не смотришь на мир. Ты внутри его слоёв.</p>
         </div>
       </div>
     </section>
 
-    <section class="finale">
+    <section class="finale biome" data-biome="sea">
       <div class="finale__inner">
-        <p class="finale__kicker">следующий выезд</p>
-        <h2 class="finale__title">Ноябрь · Кольский</h2>
-        <p class="finale__text">Восемь мест. Один гид. Никаких автобусов с неонками.</p>
+        <p class="finale__kicker">точка возврата</p>
+        <h2 class="finale__title">Мир замкнут</h2>
+        <p class="finale__text">Небо → горы → океан. Одно окно. Одна вселенная. Оставь след, если хочешь вернуться.</p>
         <form class="join" id="join" novalidate>
           <label class="sr-only" for="email">Email</label>
           <input id="email" name="email" type="email" placeholder="твой email" required autocomplete="email">
-          <button type="submit" data-magnetic>Записаться в лист</button>
+          <button type="submit" data-magnetic>Оставить след</button>
         </form>
         <p class="join__status" id="join-status" role="status" aria-live="polite"></p>
       </div>
@@ -167,7 +176,7 @@
 
   <footer class="foot">
     <span>АВРОРА © 2026</span>
-    <span>WebGL shader sky</span>
+    <span>скролл = спуск через мир</span>
   </footer>
 
   <script src="js/main.js"></script>
