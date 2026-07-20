@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="АВРОРА — экспедиции к северному сиянию. Живой холст, тишина и свет.">
+  <meta name="description" content="АВРОРА — экспедиции к северному сиянию. WebGL-небо, тишина и свет.">
   <title>АВРОРА — северное сияние</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -765,7 +765,7 @@ main,
   <main id="top">
     <section class="hero">
       <div class="hero__copy">
-        <p class="hero__eyebrow">67° с. ш. · полярная ночь</p>
+        <p class="hero__eyebrow">67° с. ш. · полярная ночь · <span id="render-mode">WebGL небо</span></p>
         <h1 class="hero__title">
           <span class="line"><span>АВРОРА</span></span>
         </h1>
@@ -778,8 +778,8 @@ main,
         </a>
       </div>
       <div class="hero__meta">
-        <span>живой холст</span>
-        <span>скролл = движение</span>
+        <span>shader-небо</span>
+        <span>скролл = глубина</span>
         <span>мышь = ветер</span>
       </div>
     </section>
@@ -894,13 +894,12 @@ main,
 
   <footer class="foot">
     <span>АВРОРА © 2026</span>
-    <span>сделано не за 5 секунд</span>
+    <span>WebGL shader sky</span>
   </footer>
 
   <script>
 (() => {
   const canvas = document.getElementById("aurora");
-  const ctx = canvas.getContext("2d", { alpha: false });
   const progress = document.getElementById("progress");
   const cursor = document.getElementById("cursor");
   const cursorRing = document.getElementById("cursor-ring");
@@ -916,119 +915,223 @@ main,
 
   let width = 0;
   let height = 0;
-  let dpr = Math.min(window.devicePixelRatio || 1, 2);
-  let mouse = { x: 0.5, y: 0.4, tx: 0.5, ty: 0.4 };
+  let mouse = { x: 0.5, y: 0.42, tx: 0.5, ty: 0.42 };
   let scrollIntensity = 0;
-  let time = 0;
   let audioCtx = null;
   let masterGain = null;
-  let oscillators = [];
   let soundOn = false;
 
-  const ribbons = [
-    { amp: 0.22, speed: 0.22, hue: 155, thick: 0.28, phase: 0.0 },
-    { amp: 0.14, speed: 0.31, hue: 175, thick: 0.18, phase: 1.7 },
-    { amp: 0.11, speed: 0.17, hue: 130, thick: 0.26, phase: 3.1 },
-    { amp: 0.09, speed: 0.41, hue: 195, thick: 0.14, phase: 4.4 },
-  ];
+  /* ---------- WebGL sky ---------- */
+  const vertSrc = `
+    attribute vec2 a_pos;
+    void main() {
+      gl_Position = vec4(a_pos, 0.0, 1.0);
+    }
+  `;
 
-  const stars = Array.from({ length: 120 }, () => ({
-    x: Math.random(),
-    y: Math.random() * 0.7,
-    r: Math.random() * 1.4 + 0.2,
-    a: Math.random() * 0.6 + 0.15,
-    tw: Math.random() * Math.PI * 2,
-  }));
+  const fragSrc = `
+    precision highp float;
+
+    uniform vec2 u_res;
+    uniform float u_time;
+    uniform vec2 u_mouse;
+    uniform float u_scroll;
+
+    float hash(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    }
+
+    float fbm(vec2 p) {
+      float v = 0.0;
+      float a = 0.5;
+      mat2 m = mat2(0.8, -0.6, 0.6, 0.8);
+      for (int i = 0; i < 5; i++) {
+        v += a * noise(p);
+        p = m * p * 2.0;
+        a *= 0.5;
+      }
+      return v;
+    }
+
+    float auroraBand(vec2 uv, float y, float thick, float speed, float seed) {
+      float wind = (u_mouse.x - 0.5) * 1.8;
+      float lift = (0.55 - u_mouse.y) * 0.35 + u_scroll * 0.2;
+      float n = fbm(vec2(uv.x * 2.4 + u_time * speed + wind + seed, seed * 3.1 + u_time * 0.05));
+      float wavy = y + lift + (n - 0.5) * 0.55;
+      float d = abs(uv.y - wavy);
+      float core = smoothstep(thick, 0.0, d);
+      float veil = smoothstep(thick * 2.8, 0.0, d) * 0.45;
+      float curtains = pow(max(0.0, fbm(vec2(uv.x * 8.0 - u_time * speed * 1.4, uv.y * 3.0 + seed)) - 0.28), 1.6);
+      return (core + veil) * (0.55 + curtains * 1.4);
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / u_res.xy;
+      float aspect = u_res.x / max(u_res.y, 1.0);
+      vec2 p = uv;
+      p.x *= aspect;
+
+      // Deep arctic night
+      vec3 skyTop = vec3(0.01, 0.03, 0.07);
+      vec3 skyMid = vec3(0.02, 0.07, 0.1);
+      vec3 skyBot = vec3(0.015, 0.05, 0.045);
+      vec3 col = mix(skyBot, skyMid, smoothstep(0.0, 0.45, uv.y));
+      col = mix(col, skyTop, smoothstep(0.4, 1.0, uv.y));
+
+      // Soft horizon glow
+      float horizon = exp(-abs(uv.y - 0.18) * 8.0) * 0.12;
+      col += vec3(0.05, 0.12, 0.14) * horizon;
+
+      // Stars
+      vec2 starUv = uv * vec2(u_res.x / 90.0, u_res.y / 90.0);
+      float star = step(0.995, hash(floor(starUv)));
+      float twinkle = 0.55 + 0.45 * sin(u_time * 2.0 + hash(floor(starUv)) * 40.0);
+      float starMask = smoothstep(0.15, 0.75, uv.y);
+      col += vec3(0.85, 0.92, 1.0) * star * twinkle * starMask * 0.9;
+
+      // Distant milky dust
+      float dust = fbm(uv * vec2(3.0, 6.0) + u_time * 0.01) * 0.08 * starMask;
+      col += vec3(0.25, 0.35, 0.5) * dust;
+
+      // Aurora curtains
+      float a1 = auroraBand(uv, 0.52, 0.05, 0.07, 1.2);
+      float a2 = auroraBand(uv, 0.62, 0.04, 0.11, 3.7);
+      float a3 = auroraBand(uv, 0.44, 0.06, 0.05, 6.1);
+      float a4 = auroraBand(uv, 0.70, 0.035, 0.14, 8.9);
+
+      vec3 c1 = vec3(0.15, 0.95, 0.55);
+      vec3 c2 = vec3(0.25, 0.75, 1.0);
+      vec3 c3 = vec3(0.45, 1.0, 0.7);
+      vec3 c4 = vec3(0.7, 0.45, 1.0);
+
+      vec3 aurora =
+        c1 * a1 * 0.85 +
+        c2 * a2 * 0.7 +
+        c3 * a3 * 0.55 +
+        c4 * a4 * 0.35;
+
+      // Vertical shafts
+      float shafts = pow(max(0.0, fbm(vec2(uv.x * 14.0 + u_time * 0.08, uv.y * 0.8)) - 0.4), 2.0);
+      aurora *= 0.75 + shafts * 1.1;
+
+      // Mouse glow
+      vec2 m = u_mouse;
+      m.x *= aspect;
+      float glow = exp(-length((p - m) * vec2(1.0, 1.4)) * 2.2) * 0.35;
+      aurora += vec3(0.2, 0.9, 0.7) * glow;
+
+      col += aurora * (0.85 + u_scroll * 0.35);
+
+      // Vignette
+      float vig = smoothstep(1.25, 0.35, length(uv - 0.5));
+      col *= 0.72 + 0.28 * vig;
+
+      // Mild grade
+      col = pow(max(col, 0.0), vec3(0.95));
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  function createShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  }
+
+  function initWebGL(canvasEl) {
+    const gl = canvasEl.getContext("webgl", {
+      antialias: false,
+      alpha: false,
+      powerPreference: "high-performance",
+    });
+    if (!gl) return null;
+
+    const vs = createShader(gl, gl.VERTEX_SHADER, vertSrc);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, fragSrc);
+    if (!vs || !fs) return null;
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(program));
+      return null;
+    }
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1, 1, 1, -1, 1, 1,
+    ]), gl.STATIC_DRAW);
+
+    const aPos = gl.getAttribLocation(program, "a_pos");
+    const uniforms = {
+      res: gl.getUniformLocation(program, "u_res"),
+      time: gl.getUniformLocation(program, "u_time"),
+      mouse: gl.getUniformLocation(program, "u_mouse"),
+      scroll: gl.getUniformLocation(program, "u_scroll"),
+    };
+
+    return { gl, program, aPos, uniforms, buffer };
+  }
+
+  const sky = initWebGL(canvas);
+  const modeBadge = document.getElementById("render-mode");
+  if (modeBadge) modeBadge.textContent = sky ? "WebGL небо" : "Canvas fallback";
 
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function drawBackground() {
-    const g = ctx.createLinearGradient(0, 0, 0, height);
-    g.addColorStop(0, "#03080d");
-    g.addColorStop(0.45, "#061018");
-    g.addColorStop(1, "#0a1a16");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, width, height);
-
-    for (const s of stars) {
-      const twinkle = 0.55 + Math.sin(time * 1.4 + s.tw) * 0.45;
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(230, 245, 255, ${s.a * twinkle})`;
-      ctx.arc(s.x * width, s.y * height, s.r, 0, Math.PI * 2);
-      ctx.fill();
+    if (sky) {
+      sky.gl.viewport(0, 0, canvas.width, canvas.height);
     }
-  }
-
-  function ribbonY(xNorm, ribbon, t) {
-    const wind = (mouse.x - 0.5) * 0.35;
-    const lift = (0.5 - mouse.y) * 0.2;
-    const scrollLift = scrollIntensity * 0.18;
-    return (
-      0.38 +
-      lift +
-      scrollLift +
-      Math.sin(xNorm * 3.2 + t * ribbon.speed + ribbon.phase + wind) * ribbon.amp +
-      Math.sin(xNorm * 7.5 - t * ribbon.speed * 1.4 + ribbon.phase) * ribbon.amp * 0.35
-    );
-  }
-
-  function drawRibbons() {
-    for (const ribbon of ribbons) {
-      const band = height * ribbon.thick;
-      for (let layer = 0; layer < 3; layer++) {
-        ctx.beginPath();
-        const steps = Math.ceil(width / 10);
-        for (let i = 0; i <= steps; i++) {
-          const x = (i / steps) * width;
-          const n = i / steps;
-          const y = ribbonY(n, ribbon, time + layer * 0.2) * height + layer * 8;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        for (let i = steps; i >= 0; i--) {
-          const x = (i / steps) * width;
-          const n = i / steps;
-          const y = ribbonY(n, ribbon, time + layer * 0.2) * height + band * (0.55 - layer * 0.1);
-          ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-
-        const alpha = (0.16 - layer * 0.03) * (0.85 + scrollIntensity * 0.7);
-        ctx.fillStyle = `hsla(${ribbon.hue + mouse.x * 20}, 90%, ${58 - layer * 6}%, ${alpha})`;
-        ctx.fill();
-      }
-    }
-
-    const glow = ctx.createRadialGradient(
-      mouse.x * width,
-      mouse.y * height * 0.7,
-      0,
-      mouse.x * width,
-      mouse.y * height * 0.7,
-      width * 0.45
-    );
-    glow.addColorStop(0, "rgba(61, 255, 181, 0.22)");
-    glow.addColorStop(0.45, "rgba(126, 200, 255, 0.1)");
-    glow.addColorStop(1, "transparent");
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, width, height);
   }
 
   function frame(now) {
-    time = now * 0.001;
-    mouse.x += (mouse.tx - mouse.x) * 0.06;
-    mouse.y += (mouse.ty - mouse.y) * 0.06;
-    drawBackground();
-    drawRibbons();
+    const t = now * 0.001;
+    mouse.x += (mouse.tx - mouse.x) * 0.05;
+    mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+    if (sky) {
+      const { gl, program, aPos, uniforms, buffer } = sky;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uniforms.res, canvas.width, canvas.height);
+      gl.uniform1f(uniforms.time, t);
+      gl.uniform2f(uniforms.mouse, mouse.x, 1.0 - mouse.y);
+      gl.uniform1f(uniforms.scroll, scrollIntensity);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
     requestAnimationFrame(frame);
   }
 
@@ -1077,8 +1180,8 @@ main,
       (e) => {
         x = e.clientX;
         y = e.clientY;
-        mouse.tx = e.clientX / width;
-        mouse.ty = e.clientY / height;
+        mouse.tx = e.clientX / Math.max(width, 1);
+        mouse.ty = e.clientY / Math.max(height, 1);
         cursor.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
       },
       { passive: true }
@@ -1149,7 +1252,7 @@ main,
     masterGain.connect(audioCtx.destination);
 
     const freqs = [98, 146.8, 196, 246.9];
-    oscillators = freqs.map((freq, i) => {
+    const oscillators = freqs.map((freq, i) => {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       const filter = audioCtx.createBiquadFilter();
@@ -1162,7 +1265,7 @@ main,
       filter.connect(gain);
       gain.connect(masterGain);
       osc.start();
-      return { osc, gain, filter };
+      return { filter };
     });
 
     const lfo = audioCtx.createOscillator();
