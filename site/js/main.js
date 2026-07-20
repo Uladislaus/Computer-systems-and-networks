@@ -83,11 +83,11 @@
       return (core * 1.45 + mid + edge) * (0.4 + rays * 1.35) * (0.3 + drop * 1.05);
     }
 
-    vec3 sampleAurora(vec2 uv, float aspect) {
-      float a1 = auroraBand(uv, 0.38, 0.03, 0.06, 1.2);
-      float a2 = auroraBand(uv, 0.48, 0.024, 0.10, 3.7);
-      float a3 = auroraBand(uv, 0.30, 0.034, 0.045, 6.1);
-      float a4 = auroraBand(uv, 0.56, 0.02, 0.13, 8.9);
+    vec3 sampleAurora(vec2 uv, float aspect, float yShift) {
+      float a1 = auroraBand(uv, 0.42 + yShift, 0.032, 0.06, 1.2);
+      float a2 = auroraBand(uv, 0.52 + yShift, 0.026, 0.10, 3.7);
+      float a3 = auroraBand(uv, 0.34 + yShift, 0.036, 0.045, 6.1);
+      float a4 = auroraBand(uv, 0.58 + yShift, 0.022, 0.13, 8.9);
       vec3 aurora =
         vec3(0.2, 1.0, 0.55) * a1 * 1.25 +
         vec3(0.15, 0.85, 1.0) * a2 * 1.05 +
@@ -99,15 +99,14 @@
       return aurora;
     }
 
-    // Soft rolling ridgeline — low-frequency waves, no triangular needles
+    // Very soft massifs — few wide lobes, almost no high-frequency teeth
     float ridgeProfile(float x, float seed) {
-      float w1 = sin(x * 1.1 + seed) * 0.5 + 0.5;
-      float w2 = sin(x * 2.3 + seed * 1.7 + 1.2) * 0.5 + 0.5;
-      float w3 = sin(x * 0.55 + seed * 0.4) * 0.5 + 0.5;
-      float n = fbm(vec2(x * 0.9 + seed, seed * 2.0));
-      // Broad central massif, rounded
-      float massif = exp(-pow(x * 0.35 - 0.15, 2.0) * 1.8) * 0.35;
-      return clamp(w3 * 0.45 + w1 * 0.28 + w2 * 0.14 + n * 0.18 + massif, 0.0, 1.2);
+      float a = sin(x * 0.42 + seed) * 0.5 + 0.5;
+      float b = sin(x * 0.78 + seed * 1.3 + 0.8) * 0.5 + 0.5;
+      float c = fbm(vec2(x * 0.35 + seed, seed));
+      float massif = exp(-pow((x - 0.4) * 0.55, 2.0)) * 0.4;
+      float massif2 = exp(-pow((x + 1.2) * 0.4, 2.0)) * 0.25;
+      return clamp(a * 0.35 + b * 0.25 + c * 0.2 + massif + massif2, 0.0, 1.15);
     }
 
     // horizon = land/sky seam. Peaks grow ABOVE it as we approach; ground fills BELOW it.
@@ -123,14 +122,14 @@
       float midAmt = approach * (1.0 - smoothstep(0.35, 0.9, pullBack));
       float farAmt = rise * mix(1.0, 0.55, pullBack);
 
-      float xFar = (uv.x + mousePar * 0.008) * aspect * 0.95 + 0.2;
-      float xMid = (uv.x + mousePar * 0.025) * aspect * 1.15 + 1.7;
-      float xNear = (uv.x + mousePar * 0.05) * aspect * 1.35 + 3.4;
+      float xFar = (uv.x + mousePar * 0.008) * aspect * 0.7 + 0.2;
+      float xMid = (uv.x + mousePar * 0.025) * aspect * 0.85 + 1.4;
+      float xNear = (uv.x + mousePar * 0.05) * aspect * 1.0 + 2.8;
 
-      // Heights above the horizon line (not above screen bottom)
-      float hFar = (0.06 + ridgeProfile(xFar, 1.1) * 0.42) * farAmt;
-      float hMid = (0.04 + ridgeProfile(xMid, 4.2) * 0.38) * midAmt;
-      float hNear = (0.02 + ridgeProfile(xNear, 7.0) * 0.48) * nearAmt;
+      // Tall soft massifs above the horizon — fill toward the aurora
+      float hFar = (0.12 + ridgeProfile(xFar, 1.1) * 0.5) * farAmt;
+      float hMid = (0.1 + ridgeProfile(xMid, 4.2) * 0.48) * midAmt;
+      float hNear = (0.08 + ridgeProfile(xNear, 7.0) * 0.58) * nearAmt;
 
       float yFar = horizon + hFar;
       float yMid = horizon + hMid;
@@ -231,8 +230,8 @@
       float waterAmt = smoothstep(0.5, 0.96, w);
       float pullBack = smoothstep(0.5, 0.98, w);
 
-      // Horizon starts low-mid, then becomes the rising waterline as we reach the sea
-      float horizon = mix(0.26, 0.52, waterAmt);
+      // Horizon mid-low; climbs with the sea so peaks settle on the waterline
+      float horizon = mix(0.3, 0.54, waterAmt);
       // Early hint of horizon before full land (connects aurora to ground)
       float horizonHint = smoothstep(0.04, 0.2, w);
 
@@ -242,16 +241,21 @@
       dawn += vec3(1.0, 0.7, 0.35) * exp(-length(vec2((uv.x - 0.72) * aspect, uv.y - 0.4) * vec2(2.2, 3.5)) * 3.5) * 0.5;
       vec3 col = mix(night, dawn, dawnAmt);
 
-      // Atmospheric gradient from aurora down to the horizon — no empty mid void
-      float toHorizon = smoothstep(0.85, horizon, uv.y);
-      col = mix(col, vec3(0.08, 0.09, 0.1), toHorizon * horizonHint * 0.55);
-      col = mix(col, vec3(0.28, 0.3, 0.34), exp(-abs(uv.y - horizon) * 7.0) * horizonHint * 0.5);
+      // Dense air column from horizon up to aurora — kills the black void
+      float air = smoothstep(horizon - 0.02, 0.72, uv.y) * (1.0 - smoothstep(0.55, 0.95, uv.y));
+      air *= max(horizonHint, landAmt);
+      vec3 airCol = mix(vec3(0.14, 0.13, 0.12), vec3(0.22, 0.28, 0.34), smoothstep(horizon, 0.55, uv.y));
+      airCol = mix(airCol, vec3(0.35, 0.22, 0.28), dawnAmt * 0.25);
+      col = mix(col, airCol, air * 0.7);
+      col = mix(col, vec3(0.4, 0.42, 0.46), exp(-abs(uv.y - horizon) * 5.5) * max(horizonHint, landAmt) * 0.65);
 
       vec2 cell = floor(uv * vec2(u_res.x / 70.0, u_res.y / 70.0));
-      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(horizon + 0.05, 0.55, uv.y);
+      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(horizon + 0.08, 0.6, uv.y);
       col += vec3(0.9, 0.95, 1.0) * star * (0.65 + 0.35 * sin(u_time * 3.0 + hash(cell) * 50.0));
-      float auroraMask = smoothstep(horizon + 0.02, horizon + 0.28, uv.y) * auroraAmt;
-      col += sampleAurora(uv, aspect) * auroraMask;
+      // Aurora settles down onto the ridge as we approach — no orphan glow in empty mid-air
+      float auroraShift = -landAmt * 0.14 - pullBack * 0.06;
+      float auroraMask = smoothstep(horizon, horizon + 0.22, uv.y) * auroraAmt;
+      col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
 
       float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
       col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * smoothstep(horizon + 0.05, 0.9, uv.y) * windAmt * 0.18;
