@@ -66,8 +66,7 @@ body.is-touch {
   cursor: auto;
 }
 
-body.is-touch .cursor,
-body.is-touch .cursor-ring {
+body.is-touch .cursor {
   display: none !important;
 }
 
@@ -106,55 +105,42 @@ body.is-touch a {
   height: 100%;
   z-index: 0;
   pointer-events: none;
+  /* own compositor layer — reduces Chrome checkerboard flashes on Windows */
+  transform: translateZ(0);
 }
 
-.vignette {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
-}
-
-/* Custom cursor — positioned via left/top (not transform) to avoid Windows white-square GPU flash */
-.cursor,
-.cursor-ring {
+/* One-element cursor: dot + ring via box-shadow (no second DOM layer) */
+.cursor {
   position: fixed;
   top: 0;
   left: 0;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
   border-radius: 50%;
   pointer-events: none;
   z-index: 100;
   opacity: 0;
-}
-
-.cursor {
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
   background: #3dffb5;
-  box-shadow: 0 0 12px rgba(61, 255, 181, 0.75);
+  box-shadow:
+    0 0 0 1px rgba(61, 255, 181, 0.35),
+    0 0 0 14px rgba(61, 255, 181, 0.12),
+    0 0 14px rgba(61, 255, 181, 0.7);
+  transition: box-shadow 0.2s ease, opacity 0.2s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease;
 }
 
-.cursor-ring {
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
-  border: 1.5px solid rgba(61, 255, 181, 0.55);
-  background: rgba(61, 255, 181, 0.04);
-  transition: width 0.2s ease, height 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
-}
-
-body.is-hover .cursor-ring {
-  width: 56px;
-  height: 56px;
-  margin: -28px 0 0 -28px;
-  border-color: rgba(61, 255, 181, 0.85);
-}
-
-body.is-cursor-ready .cursor,
-body.is-cursor-ready .cursor-ring {
+body.is-cursor-ready .cursor {
   opacity: 1;
+}
+
+body.is-hover .cursor {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  box-shadow:
+    0 0 0 1px rgba(61, 255, 181, 0.55),
+    0 0 0 22px rgba(61, 255, 181, 0.16),
+    0 0 18px rgba(61, 255, 181, 0.85);
 }
 
 .progress {
@@ -767,8 +753,7 @@ body,
     cursor: auto;
   }
 
-  .cursor,
-  .cursor-ring {
+  .cursor {
     display: none !important;
   }
 
@@ -830,10 +815,8 @@ body,
 </head>
 <body data-world="sky">
   <div class="cursor" id="cursor" aria-hidden="true"></div>
-  <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
 
   <canvas id="aurora" aria-hidden="true"></canvas>
-  <div class="vignette" aria-hidden="true"></div>
 
   <div class="progress" id="progress" aria-hidden="true"></div>
 
@@ -1001,7 +984,6 @@ body,
   const canvas = document.getElementById("aurora");
   const progress = document.getElementById("progress");
   const cursor = document.getElementById("cursor");
-  const cursorRing = document.getElementById("cursor-ring");
   const soundBtn = document.getElementById("sound");
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
@@ -1206,8 +1188,9 @@ body,
         col = oceanColor(uv, aspect, waterLine);
       }
 
-      float vig = smoothstep(1.35, 0.25, length(uv - 0.5));
-      col *= 0.92 + 0.08 * vig;
+      // vignette inside shader (no extra DOM layer over canvas)
+      float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
+      col *= 0.78 + 0.22 * vig;
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
   `;
@@ -1228,7 +1211,8 @@ body,
     const gl = canvasEl.getContext("webgl", {
       antialias: false,
       alpha: false,
-      powerPreference: "high-performance",
+      powerPreference: "default",
+      desynchronized: true,
     });
     if (!gl) return null;
 
@@ -1274,7 +1258,8 @@ body,
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Cap DPR — high DPR full-screen shaders often cause Chrome checkerboard tiles on Windows
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
@@ -1376,31 +1361,15 @@ body,
         mouse.tx = e.clientX / Math.max(width, 1);
         mouse.ty = e.clientY / Math.max(height, 1);
 
-        if (isTouch || !cursor || !cursorRing) return;
+        if (isTouch || !cursor) return;
         cursor.style.left = `${e.clientX}px`;
         cursor.style.top = `${e.clientY}px`;
-        // ring follows with slight lag via rAF below
-        cursorRing.dataset.tx = String(e.clientX);
-        cursorRing.dataset.ty = String(e.clientY);
         document.body.classList.add("is-cursor-ready");
       },
       { passive: true }
     );
 
-    if (isTouch || !cursorRing) return;
-
-    let rx = window.innerWidth / 2;
-    let ry = window.innerHeight / 2;
-    const tickRing = () => {
-      const tx = parseFloat(cursorRing.dataset.tx || rx);
-      const ty = parseFloat(cursorRing.dataset.ty || ry);
-      rx += (tx - rx) * 0.18;
-      ry += (ty - ry) * 0.18;
-      cursorRing.style.left = `${rx}px`;
-      cursorRing.style.top = `${ry}px`;
-      requestAnimationFrame(tickRing);
-    };
-    tickRing();
+    if (isTouch || !cursor) return;
 
     document.querySelectorAll("a, button, input, .place").forEach((el) => {
       el.addEventListener("pointerenter", () => document.body.classList.add("is-hover"));
@@ -1409,18 +1378,9 @@ body,
   }
 
   function setupMagnetic() {
-    if (isTouch) return;
-    magnetic.forEach((el) => {
-      el.addEventListener("pointermove", (e) => {
-        const rect = el.getBoundingClientRect();
-        const dx = e.clientX - (rect.left + rect.width / 2);
-        const dy = e.clientY - (rect.top + rect.height / 2);
-        el.style.transform = `translate(${dx * 0.2}px, ${dy * 0.25}px)`;
-      });
-      el.addEventListener("pointerleave", () => {
-        el.style.transform = "";
-      });
-    });
+    // Disabled: per-frame transform on DOM nodes promotes compositor layers
+    // and can flash solid tiles under text on Windows Chrome.
+    return;
   }
 
   function setupRail() {

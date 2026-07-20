@@ -2,7 +2,6 @@
   const canvas = document.getElementById("aurora");
   const progress = document.getElementById("progress");
   const cursor = document.getElementById("cursor");
-  const cursorRing = document.getElementById("cursor-ring");
   const soundBtn = document.getElementById("sound");
   const rail = document.getElementById("rail");
   const join = document.getElementById("join");
@@ -207,8 +206,9 @@
         col = oceanColor(uv, aspect, waterLine);
       }
 
-      float vig = smoothstep(1.35, 0.25, length(uv - 0.5));
-      col *= 0.92 + 0.08 * vig;
+      // vignette inside shader (no extra DOM layer over canvas)
+      float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
+      col *= 0.78 + 0.22 * vig;
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
   `;
@@ -229,7 +229,8 @@
     const gl = canvasEl.getContext("webgl", {
       antialias: false,
       alpha: false,
-      powerPreference: "high-performance",
+      powerPreference: "default",
+      desynchronized: true,
     });
     if (!gl) return null;
 
@@ -275,7 +276,8 @@
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Cap DPR — high DPR full-screen shaders often cause Chrome checkerboard tiles on Windows
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
@@ -377,31 +379,15 @@
         mouse.tx = e.clientX / Math.max(width, 1);
         mouse.ty = e.clientY / Math.max(height, 1);
 
-        if (isTouch || !cursor || !cursorRing) return;
+        if (isTouch || !cursor) return;
         cursor.style.left = `${e.clientX}px`;
         cursor.style.top = `${e.clientY}px`;
-        // ring follows with slight lag via rAF below
-        cursorRing.dataset.tx = String(e.clientX);
-        cursorRing.dataset.ty = String(e.clientY);
         document.body.classList.add("is-cursor-ready");
       },
       { passive: true }
     );
 
-    if (isTouch || !cursorRing) return;
-
-    let rx = window.innerWidth / 2;
-    let ry = window.innerHeight / 2;
-    const tickRing = () => {
-      const tx = parseFloat(cursorRing.dataset.tx || rx);
-      const ty = parseFloat(cursorRing.dataset.ty || ry);
-      rx += (tx - rx) * 0.18;
-      ry += (ty - ry) * 0.18;
-      cursorRing.style.left = `${rx}px`;
-      cursorRing.style.top = `${ry}px`;
-      requestAnimationFrame(tickRing);
-    };
-    tickRing();
+    if (isTouch || !cursor) return;
 
     document.querySelectorAll("a, button, input, .place").forEach((el) => {
       el.addEventListener("pointerenter", () => document.body.classList.add("is-hover"));
@@ -410,18 +396,9 @@
   }
 
   function setupMagnetic() {
-    if (isTouch) return;
-    magnetic.forEach((el) => {
-      el.addEventListener("pointermove", (e) => {
-        const rect = el.getBoundingClientRect();
-        const dx = e.clientX - (rect.left + rect.width / 2);
-        const dy = e.clientY - (rect.top + rect.height / 2);
-        el.style.transform = `translate(${dx * 0.2}px, ${dy * 0.25}px)`;
-      });
-      el.addEventListener("pointerleave", () => {
-        el.style.transform = "";
-      });
-    });
+    // Disabled: per-frame transform on DOM nodes promotes compositor layers
+    // and can flash solid tiles under text on Windows Chrome.
+    return;
   }
 
   function setupRail() {

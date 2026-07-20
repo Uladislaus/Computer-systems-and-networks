@@ -55,8 +55,7 @@ body.is-touch {
   cursor: auto;
 }
 
-body.is-touch .cursor,
-body.is-touch .cursor-ring {
+body.is-touch .cursor {
   display: none !important;
 }
 
@@ -95,55 +94,42 @@ body.is-touch a {
   height: 100%;
   z-index: 0;
   pointer-events: none;
+  /* own compositor layer — reduces Chrome checkerboard flashes on Windows */
+  transform: translateZ(0);
 }
 
-.vignette {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
-}
-
-/* Custom cursor — positioned via left/top (not transform) to avoid Windows white-square GPU flash */
-.cursor,
-.cursor-ring {
+/* One-element cursor: dot + ring via box-shadow (no second DOM layer) */
+.cursor {
   position: fixed;
   top: 0;
   left: 0;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
   border-radius: 50%;
   pointer-events: none;
   z-index: 100;
   opacity: 0;
-}
-
-.cursor {
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
   background: #3dffb5;
-  box-shadow: 0 0 12px rgba(61, 255, 181, 0.75);
+  box-shadow:
+    0 0 0 1px rgba(61, 255, 181, 0.35),
+    0 0 0 14px rgba(61, 255, 181, 0.12),
+    0 0 14px rgba(61, 255, 181, 0.7);
+  transition: box-shadow 0.2s ease, opacity 0.2s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease;
 }
 
-.cursor-ring {
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
-  border: 1.5px solid rgba(61, 255, 181, 0.55);
-  background: rgba(61, 255, 181, 0.04);
-  transition: width 0.2s ease, height 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
-}
-
-body.is-hover .cursor-ring {
-  width: 56px;
-  height: 56px;
-  margin: -28px 0 0 -28px;
-  border-color: rgba(61, 255, 181, 0.85);
-}
-
-body.is-cursor-ready .cursor,
-body.is-cursor-ready .cursor-ring {
+body.is-cursor-ready .cursor {
   opacity: 1;
+}
+
+body.is-hover .cursor {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  box-shadow:
+    0 0 0 1px rgba(61, 255, 181, 0.55),
+    0 0 0 22px rgba(61, 255, 181, 0.16),
+    0 0 18px rgba(61, 255, 181, 0.85);
 }
 
 .progress {
@@ -756,8 +742,7 @@ body,
     cursor: auto;
   }
 
-  .cursor,
-  .cursor-ring {
+  .cursor {
     display: none !important;
   }
 
