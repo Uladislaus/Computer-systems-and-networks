@@ -1309,19 +1309,27 @@ body,
       float dusk = exp(-abs(uv.y - horizon) * 11.0) * max(horizonHint, landAmt);
       col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.3);
 
-      // Point stars with independent slow twinkle (unique speed + phase per cell)
+      // Point stars: unique size, brightness, tint, and twinkle per cell
       vec2 starGrid = uv * vec2(u_res.x / 3.0, u_res.y / 3.0);
       vec2 starCell = floor(starGrid);
       vec2 starLocal = fract(starGrid) - 0.5;
       float starOn = step(0.992, hash(starCell));
-      float starDot = starOn * smoothstep(0.045, 0.0, length(starLocal));
+      float sizeSeed = hash(starCell + vec2(2.3, 5.8));
+      float brightSeed = hash(starCell + vec2(4.6, 1.1));
+      float tintSeed = hash(starCell + vec2(8.4, 3.3));
+      float starRadius = mix(0.028, 0.07, sizeSeed); // tiny … a bit larger
+      float starDot = starOn * smoothstep(starRadius, 0.0, length(starLocal));
       starDot *= (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
       float twSeed = hash(starCell + vec2(3.1, 7.7));
       float twPhase = hash(starCell + vec2(9.2, 1.4)) * 6.2831853;
-      float twSpeed = 0.25 + twSeed * 1.1; // ~0.25–1.35 rad/s, not locked together
+      float twSpeed = 0.25 + twSeed * 1.1;
       float twinkle = 0.55 + 0.45 * sin(u_time * twSpeed + twPhase);
       twinkle *= 0.75 + 0.25 * sin(u_time * (twSpeed * 0.41 + 0.12) + twPhase * 1.7);
-      col += vec3(0.9, 0.95, 1.0) * starDot * twinkle;
+      // Cool white → soft ice → faint warm tip
+      vec3 starCol = mix(vec3(0.82, 0.9, 1.0), vec3(1.0, 0.96, 0.88), smoothstep(0.35, 0.9, tintSeed));
+      starCol = mix(starCol, vec3(0.75, 0.95, 1.0), step(0.82, tintSeed) * 0.55);
+      float starBright = mix(0.35, 1.15, brightSeed);
+      col += starCol * starDot * twinkle * starBright;
 
       // Aurora reaches down to just above the ridge — gap ~half of the old black strip
       float auroraShift = -landAmt * 0.04 - pullBack * 0.03;
