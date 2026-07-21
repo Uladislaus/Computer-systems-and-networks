@@ -1347,34 +1347,34 @@ body,
       float starBright = mix(0.35, 1.15, brightSeed);
       col += starCol * starDot * twinkle * starBright;
 
-      // Constellations: Virgo + Scorpius — brighter named stars
+      // Constellations: Big Dipper (Ursa Major) + Scorpius — brighter named stars
       float skyStars = (1.0 - dawnAmt) * smoothstep(crestApprox + 0.1, 0.75, uv.y);
       if (skyStars > 0.01) {
         vec2 p = vec2(uv.x * aspect, uv.y);
 
-        // --- Дева (Virgo): Y-фигура, Spica ярче внизу ---
-        vec2 vi0 = vec2(0.22, 0.86); // Vindemiatrix
-        vec2 vi1 = vec2(0.30, 0.82);
-        vec2 vi2 = vec2(0.36, 0.76); // Porrima
-        vec2 vi3 = vec2(0.28, 0.70); // Zavijava (левая ветвь)
-        vec2 vi4 = vec2(0.42, 0.72); // Auva
-        vec2 vi5 = vec2(0.48, 0.66); // Heze
-        vec2 vi6 = vec2(0.52, 0.58); // Spica
-        float vi =
-          constellStar(p, vi0, 0.0048, 0.5, 1.0) +
-          constellStar(p, vi1, 0.0042, 1.1, 1.2) +
-          constellStar(p, vi2, 0.0050, 1.7, 0.95) +
-          constellStar(p, vi3, 0.0045, 2.3, 1.15) +
-          constellStar(p, vi4, 0.0044, 2.9, 1.05) +
-          constellStar(p, vi5, 0.0046, 3.5, 1.25) +
-          constellStar(p, vi6, 0.0072, 4.1, 0.75); // Spica
-        float viLines =
-          constellLine(p, vi0, vi1) + constellLine(p, vi1, vi2) +
-          constellLine(p, vi2, vi3) + constellLine(p, vi2, vi4) +
-          constellLine(p, vi4, vi5) + constellLine(p, vi5, vi6);
-        col += vec3(0.88, 0.93, 1.0) * vi * 1.3 * skyStars;
-        col += vec3(0.95, 0.9, 0.82) * constellStar(p, vi6, 0.0072, 4.1, 0.75) * 0.45 * skyStars;
-        col += vec3(0.55, 0.68, 0.88) * viLines * 0.2 * skyStars;
+        // --- Большая Медведица (ковш): handle → bowl ---
+        vec2 um0 = vec2(0.18, 0.82);
+        vec2 um1 = vec2(0.28, 0.85);
+        vec2 um2 = vec2(0.38, 0.84);
+        vec2 um3 = vec2(0.46, 0.80); // Megrez
+        vec2 um4 = vec2(0.45, 0.72); // Phecda
+        vec2 um5 = vec2(0.56, 0.70); // Merak
+        vec2 um6 = vec2(0.58, 0.78); // Dubhe
+        float um =
+          constellStar(p, um0, 0.0045, 0.4, 1.1) +
+          constellStar(p, um1, 0.0050, 0.9, 1.3) +
+          constellStar(p, um2, 0.0055, 1.5, 1.0) +
+          constellStar(p, um3, 0.0040, 2.2, 1.4) +
+          constellStar(p, um4, 0.0050, 2.8, 1.2) +
+          constellStar(p, um5, 0.0052, 3.4, 0.9) +
+          constellStar(p, um6, 0.0060, 4.0, 1.5);
+        float umLines =
+          constellLine(p, um0, um1) + constellLine(p, um1, um2) +
+          constellLine(p, um2, um3) + constellLine(p, um3, um4) +
+          constellLine(p, um4, um5) + constellLine(p, um5, um6) +
+          constellLine(p, um6, um3);
+        col += vec3(0.85, 0.92, 1.0) * um * 1.35 * skyStars;
+        col += vec3(0.55, 0.7, 0.9) * umLines * 0.22 * skyStars;
 
         // --- Скорпион: curve + Antares (warmer/brighter) ---
         vec2 sc0 = vec2(aspect * 0.72, 0.78);
