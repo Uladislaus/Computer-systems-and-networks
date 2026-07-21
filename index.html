@@ -107,6 +107,8 @@ body.is-touch a {
   height: 100%;
   z-index: 0;
   pointer-events: none;
+  /* Opaque CSS backplate — Chrome checkerboard tiles flash white without this */
+  background: #061018;
 }
 
 /* Cursor: green dot + lagging ring; dot turns white on interactive hover */
@@ -355,10 +357,9 @@ main,
   opacity: 0;
   transform: translateY(110%);
   animation: titleIn 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
-  background: linear-gradient(180deg, #ffffff 20%, var(--ice) 55%, var(--accent) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* Solid fill — gradient + background-clip:text often leaves a ghost square in Chrome */
+  color: #eef6f2;
+  text-shadow: 0 0 40px rgba(61, 255, 181, 0.18);
 }
 
 body,
@@ -1342,7 +1343,10 @@ body,
     const gl = canvasEl.getContext("webgl", {
       antialias: false,
       alpha: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: false,
       powerPreference: "default",
+      failIfMajorPerformanceCaveat: false,
     });
     if (!gl) return null;
 
@@ -1391,13 +1395,17 @@ body,
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    // Cap DPR — high DPR full-screen shaders often cause Chrome checkerboard tiles on Windows
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    // DPR 1 — Windows Chrome often flashes white checkerboard tiles on high-DPR WebGL canvases
+    const dpr = 1;
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    if (sky) sky.gl.viewport(0, 0, canvas.width, canvas.height);
+    if (sky) {
+      sky.gl.viewport(0, 0, canvas.width, canvas.height);
+      sky.gl.clearColor(0.024, 0.063, 0.094, 1.0);
+      sky.gl.clear(sky.gl.COLOR_BUFFER_BIT);
+    }
   }
 
   function worldName(w) {
@@ -1425,6 +1433,8 @@ body,
     if (sky) {
       const { gl, program, aPos, uniforms, buffer } = sky;
       gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.024, 0.063, 0.094, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.enableVertexAttribArray(aPos);

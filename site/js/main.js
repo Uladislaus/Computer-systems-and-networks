@@ -334,7 +334,10 @@
     const gl = canvasEl.getContext("webgl", {
       antialias: false,
       alpha: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: false,
       powerPreference: "default",
+      failIfMajorPerformanceCaveat: false,
     });
     if (!gl) return null;
 
@@ -383,13 +386,17 @@
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    // Cap DPR — high DPR full-screen shaders often cause Chrome checkerboard tiles on Windows
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    // DPR 1 — Windows Chrome often flashes white checkerboard tiles on high-DPR WebGL canvases
+    const dpr = 1;
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    if (sky) sky.gl.viewport(0, 0, canvas.width, canvas.height);
+    if (sky) {
+      sky.gl.viewport(0, 0, canvas.width, canvas.height);
+      sky.gl.clearColor(0.024, 0.063, 0.094, 1.0);
+      sky.gl.clear(sky.gl.COLOR_BUFFER_BIT);
+    }
   }
 
   function worldName(w) {
@@ -417,6 +424,8 @@
     if (sky) {
       const { gl, program, aPos, uniforms, buffer } = sky;
       gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.024, 0.063, 0.094, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.enableVertexAttribArray(aPos);
