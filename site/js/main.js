@@ -331,11 +331,12 @@
   }
 
   function initWebGL(canvasEl) {
+    // preserveDrawingBuffer so we can blit to the visible 2D canvas each frame
     const gl = canvasEl.getContext("webgl", {
       antialias: false,
       alpha: false,
       premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: true,
       powerPreference: "default",
       failIfMajorPerformanceCaveat: false,
     });
@@ -379,23 +380,34 @@
     };
   }
 
-  const sky = initWebGL(canvas);
+  // Visible surface = Canvas2D (same as pre-WebGL). WebGL stays off-DOM.
+  // Direct WebGL on a fixed canvas caused the fixed flickering white tile on Windows Chrome.
+  const displayCtx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+  const glCanvas = document.createElement("canvas");
+  const sky = initWebGL(glCanvas);
   const modeBadge = document.getElementById("render-mode");
-  if (modeBadge) modeBadge.textContent = sky ? "WebGL мир" : "fallback";
+  if (modeBadge) modeBadge.textContent = sky && displayCtx ? "WebGL мир" : "fallback";
 
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    // DPR 1 — Windows Chrome often flashes white checkerboard tiles on high-DPR WebGL canvases
     const dpr = 1;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
+    const w = Math.floor(width * dpr);
+    const h = Math.floor(height * dpr);
+    canvas.width = w;
+    canvas.height = h;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
+    glCanvas.width = w;
+    glCanvas.height = h;
     if (sky) {
-      sky.gl.viewport(0, 0, canvas.width, canvas.height);
+      sky.gl.viewport(0, 0, w, h);
       sky.gl.clearColor(0.024, 0.063, 0.094, 1.0);
       sky.gl.clear(sky.gl.COLOR_BUFFER_BIT);
+    }
+    if (displayCtx) {
+      displayCtx.fillStyle = "#061018";
+      displayCtx.fillRect(0, 0, w, h);
     }
   }
 
@@ -421,20 +433,25 @@
     mouse.y += (mouse.ty - mouse.y) * 0.05;
     worldSmooth += (world - worldSmooth) * 0.06;
 
-    if (sky) {
+    if (sky && displayCtx) {
       const { gl, program, aPos, uniforms, buffer } = sky;
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      const w = glCanvas.width;
+      const h = glCanvas.height;
+      gl.viewport(0, 0, w, h);
       gl.clearColor(0.024, 0.063, 0.094, 1.0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.enableVertexAttribArray(aPos);
       gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform2f(uniforms.res, canvas.width, canvas.height);
+      gl.uniform2f(uniforms.res, w, h);
       gl.uniform1f(uniforms.time, t);
       gl.uniform2f(uniforms.mouse, mouse.x, 1.0 - mouse.y);
       gl.uniform1f(uniforms.world, worldSmooth);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      // Blit to visible 2D canvas — no WebGL compositor tile on screen
+      displayCtx.globalCompositeOperation = "copy";
+      displayCtx.drawImage(glCanvas, 0, 0, w, h);
     }
 
     requestAnimationFrame(frame);

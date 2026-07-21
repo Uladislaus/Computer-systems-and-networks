@@ -88,14 +88,24 @@ body.is-touch a {
   border: 0;
 }
 
-#aurora {
+/* Fixed stage is CSS/2D only. WebGL renders offscreen and is blitted here —
+   Windows Chrome checkerboards white tiles on a *visible* WebGL canvas. */
+.sky-stage {
   position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #061018;
+  isolation: isolate;
+}
+
+#aurora {
+  position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 0;
-  pointer-events: none;
-  /* Opaque CSS backplate — Chrome checkerboard tiles flash white without this */
+  display: block;
   background: #061018;
 }
 
