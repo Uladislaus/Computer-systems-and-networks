@@ -1309,9 +1309,14 @@ body,
       float dusk = exp(-abs(uv.y - horizon) * 11.0) * max(horizonHint, landAmt);
       col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.3);
 
-      vec2 cell = floor(uv * vec2(u_res.x / 70.0, u_res.y / 70.0));
-      float star = step(0.997, hash(cell)) * (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
-      col += vec3(0.9, 0.95, 1.0) * star * (0.65 + 0.35 * sin(u_time * 3.0 + hash(cell) * 50.0));
+      // Point stars — NOT filled cells (filled cells = pale flickering squares on the sky)
+      vec2 starGrid = uv * vec2(u_res.x / 3.0, u_res.y / 3.0);
+      vec2 starCell = floor(starGrid);
+      vec2 starLocal = fract(starGrid) - 0.5;
+      float starOn = step(0.992, hash(starCell));
+      float starDot = starOn * smoothstep(0.045, 0.0, length(starLocal));
+      starDot *= (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
+      col += vec3(0.9, 0.95, 1.0) * starDot * (0.55 + 0.45 * sin(u_time * 3.0 + hash(starCell) * 50.0));
 
       // Aurora reaches down to just above the ridge — gap ~half of the old black strip
       float auroraShift = -landAmt * 0.04 - pullBack * 0.03;
