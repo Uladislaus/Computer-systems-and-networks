@@ -558,6 +558,22 @@
         col = mix(col, deep, plunge);
       }
 
+      // Cursor presence: glow in dark biomes, soft shadow in light ones
+      vec2 cPos = vec2(uv.x * aspect, uv.y);
+      vec2 cMouse = vec2(u_mouse.x * aspect, u_mouse.y);
+      float cDist = length((cPos - cMouse) * vec2(1.35, 1.55));
+      float cCore = exp(-cDist * 4.2);
+      float cSoft = exp(-cDist * 2.15);
+      // Light: dawn ridge + bright ocean surface (not abyss)
+      float lightBiome = clamp(max(dawnAmt * landAmt, surfaceAmt * 0.95) * (1.0 - diveAmt), 0.0, 1.0);
+      // Dark: night sky leftover + deep dive (abyss already has a lamp; keep a light kiss on sky)
+      float darkBiome = clamp(max(auroraAmt * (1.0 - dawnAmt), diveAmt * 0.35), 0.0, 1.0);
+      // Shadow pool behind the cursor on bright frames
+      col *= 1.0 - cSoft * lightBiome * 0.28;
+      col = mix(col, col * vec3(0.42, 0.4, 0.38), cCore * lightBiome * 0.55);
+      // Extra glow kiss on dark sky (aurora sample already glows; this grounds the cursor)
+      col += vec3(0.35, 0.8, 0.95) * cSoft * darkBiome * (1.0 - diveAmt) * 0.12;
+
       float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
       // Deeper vignette in the abyss — pressure at the edges
       vig = mix(vig, smoothstep(1.55, 0.15, length(uv - 0.5)), abyssAmt);
