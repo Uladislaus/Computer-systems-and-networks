@@ -366,19 +366,19 @@
           float seed2 = hash(vec2(fi, 2.1));
           float seed3 = hash(vec2(fi, 4.4));
           // wide scatter so individuals stay distinct
-          float ox = (seed - 0.5) * 0.38 + sin(u_time * 0.7 + fi * 1.5) * 0.012;
-          float oy = (seed2 - 0.5) * 0.22 + cos(u_time * 0.55 + fi * 1.1) * 0.01;
+          float ox = (seed - 0.5) * 0.42 + sin(u_time * 0.7 + fi * 1.5) * 0.012;
+          float oy = (seed2 - 0.5) * 0.24 + cos(u_time * 0.55 + fi * 1.1) * 0.01;
           float fx = packX + ox;
           float fy = packY + oy;
           float dx = x - fx; // never * face — that smeared fish full-width at turnaround
           float dy = y - fy;
-          float len = mix(0.011, 0.019, seed);
-          float halfH = mix(0.0020, 0.0032, seed2);
+          float len = mix(0.014, 0.024, seed);
+          float halfH = mix(0.0024, 0.0038, seed2);
           float fish = smoothstep(halfH, 0.0, abs(dy)) * smoothstep(len, 0.0, abs(dx));
           fish *= smoothstep(len * 1.15, len * 0.25, abs(dx) + abs(dy) * 3.2);
-          // muted lift into water — not additive bloom that becomes one light spot
-          float dim = mix(0.55, 1.0, seed3);
-          col = mix(col, vec3(0.32, 0.45, 0.52), fish * 0.7 * dim * d * showSilver);
+          float dim = mix(0.65, 1.0, seed3);
+          // readable silver dashes against murk — still mix, not additive bloom
+          col = mix(col, vec3(0.55, 0.7, 0.78), fish * 0.85 * dim * d * showSilver);
         }
       }
 
@@ -458,12 +458,12 @@
         col += vec3(0.55, 0.7, 0.75) * snow * 0.25 * d * showSnow;
       }
 
-      // Dive lamp
+      // Dive lamp — keep quiet so it never reads as a floating school blotch
       vec2 p = vec2(x, y);
       vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
-      float lamp = exp(-length((p - m) * vec2(1.3, 1.6)) * 3.8);
-      col += vec3(0.25, 0.55, 0.6) * lamp * 0.28 * d;
-      col += vec3(0.9, 0.95, 0.85) * pow(lamp, 3.0) * 0.15 * d;
+      float lamp = exp(-length((p - m) * vec2(1.6, 2.0)) * 5.5);
+      col += vec3(0.2, 0.45, 0.5) * lamp * 0.12 * d;
+      col += vec3(0.85, 0.92, 0.8) * pow(lamp, 4.0) * 0.06 * d;
 
       return col;
     }
