@@ -141,7 +141,7 @@ body.is-touch a {
   margin: -4px 0 0 -4px;
   background: #3dffb5;
   box-shadow: 0 0 12px rgba(61, 255, 181, 0.8);
-  transition: background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  transition: background 0.45s ease, box-shadow 0.45s ease, opacity 0.3s ease;
 }
 
 .cursor-ring {
@@ -150,7 +150,13 @@ body.is-touch a {
   margin: -18px 0 0 -18px;
   border: 1.5px solid rgba(61, 255, 181, 0.55);
   background: transparent;
-  transition: width 0.22s ease, height 0.22s ease, margin 0.22s ease, border-color 0.22s ease, opacity 0.2s ease;
+  transition:
+    width 0.35s ease,
+    height 0.35s ease,
+    margin 0.35s ease,
+    border-color 0.45s ease,
+    box-shadow 0.45s ease,
+    opacity 0.3s ease;
 }
 
 body.is-cursor-ready .cursor,
@@ -171,34 +177,33 @@ body.is-hover .cursor-ring {
   border-color: rgba(255, 255, 255, 0.7);
 }
 
-/* Light biomes: cursor casts a soft shadow instead of a neon halo */
+/* Light biomes: keep brand cursor color; only cast a soft shadow under it */
 body[data-world="ridge"] .cursor,
 body[data-world="sea"] .cursor {
-  background: #2a2218;
+  background: var(--accent);
   box-shadow:
-    0 0 0 1px rgba(20, 14, 8, 0.25),
-    0 10px 28px rgba(8, 6, 4, 0.45),
-    0 4px 12px rgba(0, 0, 0, 0.35);
+    0 0 10px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 10px 26px rgba(0, 0, 0, 0.32);
 }
 
 body[data-world="ridge"] .cursor-ring,
 body[data-world="sea"] .cursor-ring {
-  border-color: rgba(30, 22, 14, 0.4);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
 }
 
 body[data-world="ridge"].is-hover .cursor,
 body[data-world="sea"].is-hover .cursor {
-  background: #1a1410;
+  background: #ffffff;
   box-shadow:
-    0 0 0 1px rgba(10, 8, 6, 0.35),
-    0 14px 36px rgba(0, 0, 0, 0.5);
+    0 0 12px rgba(255, 255, 255, 0.7),
+    0 12px 30px rgba(0, 0, 0, 0.36);
 }
 
 body[data-world="ridge"].is-hover .cursor-ring,
 body[data-world="sea"].is-hover .cursor-ring {
-  border-color: rgba(20, 14, 10, 0.55);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+  border-color: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
 .progress {
@@ -482,6 +487,10 @@ body,
   gap: clamp(2rem, 6vw, 5rem);
   min-height: 200vh;
   padding: 22vh clamp(1.25rem, 5vw, 4rem) 12vh;
+}
+
+#depth.chapter {
+  min-height: 280vh; /* room to unlock abyss layers while scrolling */
 }
 
 .biome {

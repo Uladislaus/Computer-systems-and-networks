@@ -269,11 +269,21 @@
       return col;
     }
 
-    // Abyss: its own world — pressure, caustics, kelp, jellies, vents, trench. Not a recycled sky.
-    vec3 paintAbyss(vec2 uv, float aspect, float dive) {
+    // Abyss mid-water: elements unlock as stage rises while scrolling the biome.
+    // No seafloor yet — that will be its own coral biome later.
+    vec3 paintAbyss(vec2 uv, float aspect, float dive, float stage) {
       float d = clamp(dive, 0.0, 1.0);
+      float s = clamp(stage, 0.0, 1.0);
       float y = uv.y;
       float x = uv.x * aspect;
+
+      // Progressive reveals through the abyss scroll
+      float showOpen = smoothstep(0.0, 0.22, s);         // murk + light only
+      float showSnow = smoothstep(0.08, 0.32, s);
+      float showKelp = smoothstep(0.28, 0.52, s);        // floating fronds
+      float showFish = smoothstep(0.4, 0.62, s);
+      float showJelly = smoothstep(0.55, 0.78, s);
+      float showVent = smoothstep(0.7, 0.95, s);         // hot bubble plume last
 
       // Thick murk — colder and blacker the deeper you go
       float pressure = pow(mix(0.25, 1.0, 1.0 - y) * mix(0.55, 1.0, d), 1.15);
@@ -281,23 +291,14 @@
       vec3 trenchInk = vec3(0.0, 0.01, 0.025);
       vec3 col = mix(shallowBlue, trenchInk, pressure);
 
-      // Distant trench floor relief
-      float floorH = 0.08 + 0.04 * noise(vec2(x * 1.4, 2.2)) + 0.025 * noise(vec2(x * 3.5, 5.1));
-      if (y < floorH) {
-        float ft = clamp(y / max(floorH, 0.001), 0.0, 1.0);
-        vec3 silt = mix(vec3(0.02, 0.04, 0.05), vec3(0.05, 0.09, 0.1), ft);
-        silt += vec3(0.04, 0.1, 0.12) * noise(vec2(x * 8.0, y * 14.0)) * 0.25;
-        col = mix(col, silt, smoothstep(floorH + 0.02, floorH - 0.01, y));
-      }
-
-      // Moving caustics — warped lattice of light, dies with depth (not aurora ribbons)
+      // Moving caustics
       float cax = x * 6.0 + u_time * 0.35 + fbm(vec2(x * 1.2, y * 2.0 + u_time * 0.1)) * 1.8;
       float cay = y * 9.0 - u_time * 0.2;
       float caust = pow(0.5 + 0.5 * sin(cax) * sin(cay * 1.3 + sin(cax * 0.7)), 3.0);
-      caust *= exp(-pressure * 3.2) * smoothstep(0.0, 0.55, y) * d;
+      caust *= exp(-pressure * 3.2) * smoothstep(0.0, 0.55, y) * d * showOpen;
       col += vec3(0.12, 0.55, 0.62) * caust * 0.55;
 
-      // Soft shafts of filtered surface light (angled volumes, not sky curtains)
+      // Soft shafts of filtered surface light
       float shaft = 0.0;
       for (int i = 0; i < 4; i++) {
         float fi = float(i);
@@ -305,89 +306,105 @@
         float ang = (x - sx) * 2.2 + (1.0 - y) * 0.35;
         shaft += exp(-ang * ang * mix(18.0, 40.0, fi / 3.0)) * exp(-(1.0 - y) * 1.8);
       }
-      col += vec3(0.08, 0.28, 0.34) * shaft * 0.4 * (1.0 - pressure * 0.7) * d;
+      col += vec3(0.08, 0.28, 0.34) * shaft * 0.4 * (1.0 - pressure * 0.7) * d * showOpen;
 
-      // Kelp forest — tall swaying ribbons from the floor
-      for (int i = 0; i < 7; i++) {
-        float fi = float(i);
-        float kx = aspect * (0.08 + fi * 0.13) + sin(u_time * 0.4 + fi * 1.7) * 0.03;
-        float sway = sin(y * 9.0 - u_time * 1.1 + fi) * 0.018 * y;
-        float kd = abs(x - (kx + sway));
-        float height = mix(0.35, 0.72, hash(vec2(fi, 9.1)));
-        float blade = smoothstep(0.018, 0.0, kd) * smoothstep(0.0, 0.05, y) * smoothstep(height, height - 0.12, y);
-        blade *= 0.55 + 0.45 * noise(vec2(fi * 3.0, y * 12.0 - u_time));
-        col = mix(col, vec3(0.02, 0.12, 0.08), blade * 0.85 * d);
-        // thinner secondary frond
-        float kd2 = abs(x - (kx + sway * 1.4 + 0.012));
-        float frond = smoothstep(0.008, 0.0, kd2) * smoothstep(0.05, 0.1, y) * smoothstep(height * 0.85, height * 0.85 - 0.1, y);
-        col = mix(col, vec3(0.03, 0.16, 0.1), frond * 0.55 * d);
-      }
-
-      // Jellyfish — translucent bells + trailing tentacles
-      for (int i = 0; i < 3; i++) {
-        float fi = float(i);
-        float jx = aspect * mix(0.25, 0.8, hash(vec2(fi, 1.3))) + sin(u_time * 0.22 + fi * 2.0) * 0.06;
-        float jy = mix(0.35, 0.7, hash(vec2(fi, 2.4))) + sin(u_time * 0.35 + fi) * 0.03;
-        vec2 jp = vec2(x - jx, (y - jy) * 1.35);
-        float bell = smoothstep(0.07, 0.0, length(jp * vec2(1.0, 1.35)));
-        float rim = smoothstep(0.07, 0.045, length(jp * vec2(1.0, 1.35))) - smoothstep(0.045, 0.02, length(jp * vec2(1.0, 1.35)));
-        col += vec3(0.35, 0.85, 0.9) * bell * 0.18 * d;
-        col += vec3(0.7, 0.95, 1.0) * max(rim, 0.0) * 0.35 * d;
-        // tentacles
-        for (int t = 0; t < 4; t++) {
-          float ft = float(t);
-          float tx = jx + (ft - 1.5) * 0.012 + sin(y * 25.0 - u_time * 1.4 + ft + fi) * 0.008;
-          float ty0 = jy - 0.02;
-          float ty1 = jy - mix(0.14, 0.22, hash(vec2(fi, ft)));
-          float along = smoothstep(ty0, ty0 - 0.01, y) * smoothstep(ty1 - 0.02, ty1, y);
-          float td = abs(x - tx);
-          col += vec3(0.45, 0.8, 0.85) * smoothstep(0.004, 0.0, td) * along * 0.22 * d;
+      // Floating seaweed — free ribbons drifting mid-water (not rooted to a floor)
+      if (showKelp > 0.01) {
+        for (int i = 0; i < 6; i++) {
+          float fi = float(i);
+          float baseY = mix(0.28, 0.62, hash(vec2(fi, 2.7)));
+          float len = mix(0.12, 0.22, hash(vec2(fi, 4.1)));
+          float y0 = baseY + sin(u_time * 0.35 + fi * 1.3) * 0.03;
+          float y1 = y0 + len;
+          float kx = aspect * mix(0.1, 0.9, hash(vec2(fi, 0.4))) + sin(u_time * 0.45 + fi) * 0.05;
+          float sway = sin((y - y0) * 14.0 - u_time * 1.2 + fi) * 0.022;
+          float kd = abs(x - (kx + sway));
+          float along = smoothstep(y0 - 0.02, y0 + 0.02, y) * smoothstep(y1 + 0.02, y1 - 0.02, y);
+          float blade = smoothstep(0.016, 0.0, kd) * along;
+          blade *= 0.5 + 0.5 * noise(vec2(fi * 2.0, y * 10.0 - u_time * 0.6));
+          col = mix(col, vec3(0.03, 0.14, 0.09), blade * 0.8 * d * showKelp);
+          float kd2 = abs(x - (kx + sway * 1.3 + 0.01));
+          float frond = smoothstep(0.007, 0.0, kd2) * along * 0.7;
+          col = mix(col, vec3(0.04, 0.18, 0.11), frond * 0.5 * d * showKelp);
         }
       }
 
-      // Hydrothermal vent — warm column against the cold
-      float vx = aspect * 0.78 + sin(u_time * 0.05) * 0.02;
-      float ventCore = exp(-pow((x - vx) * 14.0, 2.0)) * smoothstep(0.0, 0.12, y) * smoothstep(0.55, 0.15, y);
-      float boil = fbm(vec2((x - vx) * 20.0, y * 14.0 - u_time * 0.9));
-      col += vec3(1.0, 0.45, 0.15) * ventCore * (0.35 + boil * 0.55) * d * 0.65;
-      col += vec3(0.9, 0.7, 0.35) * ventCore * boil * 0.35 * d;
-      // ember particles rising from the vent
-      for (int i = 0; i < 6; i++) {
-        float fi = float(i);
-        float py = fract(hash(vec2(fi, 4.4)) + u_time * mix(0.12, 0.22, hash(vec2(fi, 0.7))));
-        float px = vx + (hash(vec2(fi, 8.1)) - 0.5) * 0.08 + sin(py * 10.0 + fi) * 0.01;
-        float pr = mix(0.003, 0.008, hash(vec2(fi, 3.3)));
-        float ember = smoothstep(pr, 0.0, length(vec2(x - px, y - py)));
-        col += vec3(1.0, 0.55, 0.2) * ember * 0.8 * d * smoothstep(0.55, 0.1, py);
+      // School of fish
+      if (showFish > 0.01) {
+        float school = 0.0;
+        for (int i = 0; i < 8; i++) {
+          float fi = float(i);
+          float phase = u_time * 0.55 + fi * 0.7;
+          float fx = aspect * 0.2 + fract(fi * 0.11 + u_time * 0.03) * aspect * 0.55 + sin(phase) * 0.04;
+          float fy = 0.48 + sin(phase * 1.3 + fi) * 0.06 + (hash(vec2(fi, 1.0)) - 0.5) * 0.08;
+          vec2 fp = vec2((x - fx) * 3.2, (y - fy) * 7.0);
+          float body = exp(-dot(fp, fp));
+          float tail = exp(-pow((x - fx + 0.018) * 8.0, 2.0) - pow((y - fy) * 14.0, 2.0));
+          school += body * 0.9 + tail * 0.35;
+        }
+        col = mix(col, col * 0.35 + vec3(0.04, 0.1, 0.12), clamp(school * 0.55, 0.0, 0.7) * d * showFish);
       }
 
-      // School of fish — elongated bodies, not dots/lines
-      float school = 0.0;
-      for (int i = 0; i < 8; i++) {
-        float fi = float(i);
-        float phase = u_time * 0.55 + fi * 0.7;
-        float fx = aspect * 0.2 + fract(fi * 0.11 + u_time * 0.03) * aspect * 0.55 + sin(phase) * 0.04;
-        float fy = 0.48 + sin(phase * 1.3 + fi) * 0.06 + (hash(vec2(fi, 1.0)) - 0.5) * 0.08;
-        vec2 fp = vec2((x - fx) * 3.2, (y - fy) * 7.0);
-        float body = exp(-dot(fp, fp));
-        // tiny tail flick
-        float tail = exp(-pow((x - fx + 0.018) * 8.0, 2.0) - pow((y - fy) * 14.0, 2.0));
-        school += body * 0.9 + tail * 0.35;
+      // Jellyfish
+      if (showJelly > 0.01) {
+        for (int i = 0; i < 3; i++) {
+          float fi = float(i);
+          float jx = aspect * mix(0.25, 0.8, hash(vec2(fi, 1.3))) + sin(u_time * 0.22 + fi * 2.0) * 0.06;
+          float jy = mix(0.35, 0.7, hash(vec2(fi, 2.4))) + sin(u_time * 0.35 + fi) * 0.03;
+          vec2 jp = vec2(x - jx, (y - jy) * 1.35);
+          float bell = smoothstep(0.07, 0.0, length(jp * vec2(1.0, 1.35)));
+          float rim = smoothstep(0.07, 0.045, length(jp * vec2(1.0, 1.35))) - smoothstep(0.045, 0.02, length(jp * vec2(1.0, 1.35)));
+          col += vec3(0.35, 0.85, 0.9) * bell * 0.18 * d * showJelly;
+          col += vec3(0.7, 0.95, 1.0) * max(rim, 0.0) * 0.35 * d * showJelly;
+          for (int t = 0; t < 4; t++) {
+            float ft = float(t);
+            float tx = jx + (ft - 1.5) * 0.012 + sin(y * 25.0 - u_time * 1.4 + ft + fi) * 0.008;
+            float ty0 = jy - 0.02;
+            float ty1 = jy - mix(0.14, 0.22, hash(vec2(fi, ft)));
+            float along = smoothstep(ty0, ty0 - 0.01, y) * smoothstep(ty1 - 0.02, ty1, y);
+            float td = abs(x - tx);
+            col += vec3(0.45, 0.8, 0.85) * smoothstep(0.004, 0.0, td) * along * 0.22 * d * showJelly;
+          }
+        }
       }
-      col = mix(col, col * 0.35 + vec3(0.04, 0.1, 0.12), clamp(school * 0.55, 0.0, 0.7) * d);
 
-      // Marine snow — soft flakes drifting (not twinkling stars)
-      float snow = 0.0;
-      for (int i = 0; i < 5; i++) {
-        float fi = float(i);
-        float sy = fract(hash(vec2(fi, 2.2)) - u_time * mix(0.03, 0.07, hash(vec2(fi, 1.1))));
-        float sx = fract(hash(vec2(fi, 6.6)) + sin(u_time * 0.2 + fi) * 0.02) * aspect;
-        float sr = mix(0.0025, 0.006, hash(vec2(fi, 9.9)));
-        snow += smoothstep(sr, 0.0, length(vec2(x - sx, y - sy))) * 0.35;
+      // Thermal plume — rising hot-gas bubbles (not a campfire)
+      if (showVent > 0.01) {
+        float vx = aspect * 0.72 + sin(u_time * 0.08) * 0.03;
+        // faint warm shimmer in the water column
+        float column = exp(-pow((x - vx) * 9.0, 2.0)) * smoothstep(0.05, 0.2, y) * smoothstep(0.85, 0.35, y);
+        col += vec3(0.35, 0.55, 0.55) * column * 0.12 * d * showVent;
+        col += vec3(0.55, 0.45, 0.3) * column * 0.08 * d * showVent;
+        for (int i = 0; i < 10; i++) {
+          float fi = float(i);
+          float py = fract(hash(vec2(fi, 4.4)) + u_time * mix(0.1, 0.2, hash(vec2(fi, 0.7))));
+          // stretch vertically a bit as they rise / expand
+          float grow = mix(0.7, 1.35, py);
+          float px = vx + (hash(vec2(fi, 8.1)) - 0.5) * 0.06 * grow + sin(py * 12.0 + fi) * 0.012;
+          float pr = mix(0.004, 0.014, hash(vec2(fi, 3.3))) * grow;
+          vec2 bp = vec2(x - px, (y - py) / (0.55 + 0.45 * grow));
+          float bubble = smoothstep(pr, pr * 0.35, length(bp));
+          float shell = smoothstep(pr, pr * 0.55, length(bp)) - smoothstep(pr * 0.55, pr * 0.2, length(bp));
+          // glassy air — cool rim, slight warm core hint
+          col += vec3(0.65, 0.85, 0.9) * max(shell, 0.0) * 0.55 * d * showVent;
+          col += vec3(0.9, 0.82, 0.7) * bubble * 0.12 * d * showVent;
+        }
       }
-      col += vec3(0.55, 0.7, 0.75) * snow * 0.25 * d;
 
-      // Dive lamp around cursor — reveals local murk color
+      // Marine snow
+      if (showSnow > 0.01) {
+        float snow = 0.0;
+        for (int i = 0; i < 5; i++) {
+          float fi = float(i);
+          float sy = fract(hash(vec2(fi, 2.2)) - u_time * mix(0.03, 0.07, hash(vec2(fi, 1.1))));
+          float sx = fract(hash(vec2(fi, 6.6)) + sin(u_time * 0.2 + fi) * 0.02) * aspect;
+          float sr = mix(0.0025, 0.006, hash(vec2(fi, 9.9)));
+          snow += smoothstep(sr, 0.0, length(vec2(x - sx, y - sy))) * 0.35;
+        }
+        col += vec3(0.55, 0.7, 0.75) * snow * 0.25 * d * showSnow;
+      }
+
+      // Dive lamp
       vec2 p = vec2(x, y);
       vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
       float lamp = exp(-length((p - m) * vec2(1.3, 1.6)) * 3.8);
@@ -553,26 +570,24 @@
 
       // --- Abyss: full-frame underwater after the surface folds away ---
       if (diveAmt > 0.01) {
-        vec3 deep = paintAbyss(uv, aspect, max(abyssAmt, diveAmt));
+        // stage 0→1 across the abyss scroll so fauna unlocks gradually
+        float abyssStage = smoothstep(0.80, 1.0, w);
+        vec3 deep = paintAbyss(uv, aspect, max(abyssAmt, diveAmt), abyssStage);
         float plunge = smoothstep(0.02, 0.55, diveAmt);
         col = mix(col, deep, plunge);
       }
 
-      // Cursor presence: glow in dark biomes, soft shadow in light ones
+      // Cursor presence: soft glow in dark biomes, soft shadow in light ones (smooth crossfade)
       vec2 cPos = vec2(uv.x * aspect, uv.y);
       vec2 cMouse = vec2(u_mouse.x * aspect, u_mouse.y);
       float cDist = length((cPos - cMouse) * vec2(1.35, 1.55));
-      float cCore = exp(-cDist * 4.2);
-      float cSoft = exp(-cDist * 2.15);
-      // Light: dawn ridge + bright ocean surface (not abyss)
-      float lightBiome = clamp(max(dawnAmt * landAmt, surfaceAmt * 0.95) * (1.0 - diveAmt), 0.0, 1.0);
-      // Dark: night sky leftover + deep dive (abyss already has a lamp; keep a light kiss on sky)
-      float darkBiome = clamp(max(auroraAmt * (1.0 - dawnAmt), diveAmt * 0.35), 0.0, 1.0);
-      // Shadow pool behind the cursor on bright frames
-      col *= 1.0 - cSoft * lightBiome * 0.28;
-      col = mix(col, col * vec3(0.42, 0.4, 0.38), cCore * lightBiome * 0.55);
-      // Extra glow kiss on dark sky (aurora sample already glows; this grounds the cursor)
-      col += vec3(0.35, 0.8, 0.95) * cSoft * darkBiome * (1.0 - diveAmt) * 0.12;
+      float cCore = exp(-cDist * 3.6);
+      float cSoft = exp(-cDist * 1.9);
+      float lightBiome = smoothstep(0.15, 0.75, dawnAmt * landAmt + surfaceAmt * 0.85) * (1.0 - diveAmt);
+      float darkBiome = (1.0 - lightBiome) * (1.0 - diveAmt * 0.4);
+      col *= 1.0 - cSoft * lightBiome * 0.18;
+      col = mix(col, col * vec3(0.55, 0.52, 0.5), cCore * lightBiome * 0.35);
+      col += vec3(0.35, 0.8, 0.95) * cSoft * darkBiome * 0.1;
 
       float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
       // Deeper vignette in the abyss — pressure at the edges
@@ -770,8 +785,8 @@
     else if (y < ridgeHold) world = remap(y, ridgeTop, ridgeHold, 0.34, 0.56); // pure ridge
     else if (y < seaTop) world = remap(y, ridgeHold, seaTop, 0.56, 0.62); // approach shore
     else if (y < seaHold) world = remap(y, seaTop, seaHold, 0.62, 0.76); // ocean surface
-    else if (y < depthTop) world = remap(y, seaHold, depthTop, 0.76, 0.86); // start dive
-    else world = remap(y, depthTop, max + window.innerHeight * 0.4, 0.86, 1);
+    else if (y < depthTop) world = remap(y, seaHold, depthTop, 0.76, 0.82); // fold waves / enter
+    else world = remap(y, depthTop, max + window.innerHeight * 0.55, 0.82, 1); // long abyss unlock
 
     progress.style.width = `${(max > 0 ? window.scrollY / max : 0) * 100}%`;
     updateWorldUI(worldSmooth > 0.01 ? worldSmooth : world);
