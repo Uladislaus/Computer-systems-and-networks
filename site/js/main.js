@@ -650,13 +650,14 @@
       let rx = window.innerWidth / 2;
       let ry = window.innerHeight / 2;
       const tickRing = () => {
+        ringRafId = requestAnimationFrame(tickRing);
+        if (!pageVisible) return;
         const tx = parseFloat(cursorRing.dataset.tx || rx);
         const ty = parseFloat(cursorRing.dataset.ty || ry);
         rx += (tx - rx) * 0.16;
         ry += (ty - ry) * 0.16;
         cursorRing.style.left = `${rx}px`;
         cursorRing.style.top = `${ry}px`;
-        requestAnimationFrame(tickRing);
       };
       tickRing();
     }
@@ -767,5 +768,5 @@
   setupCursor();
   setupMagnetic();
   setupRail();
-  requestAnimationFrame(frame);
+  startLoop();
 })();
