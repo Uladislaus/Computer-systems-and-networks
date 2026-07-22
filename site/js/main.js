@@ -60,7 +60,7 @@
       float v = 0.0;
       float a = 0.5;
       mat2 m = mat2(0.8, -0.6, 0.6, 0.8);
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 4; i++) {
         v += a * noise(p);
         p = m * p * 2.02;
         a *= 0.5;
@@ -240,9 +240,9 @@
 
       float waves = 0.0;
       float foam = 0.0;
-      for (int i = 0; i < 12; i++) {
+      for (int i = 0; i < 7; i++) {
         float fi = float(i);
-        float t = (fi + 1.0) / 12.0;
+        float t = (fi + 1.0) / 7.0;
         float rowDepth = pow(t, 1.55);
         float row = waterLine - rowDepth * waterLine * 0.98;
         float dens = mix(28.0, 3.5, rowDepth);
@@ -428,7 +428,7 @@
       alpha: false,
       premultipliedAlpha: false,
       preserveDrawingBuffer: true,
-      powerPreference: "default",
+      powerPreference: "low-power",
       failIfMajorPerformanceCaveat: false,
     });
     if (!gl) return null;
@@ -479,20 +479,31 @@
   const modeBadge = document.getElementById("render-mode");
   if (modeBadge) modeBadge.textContent = sky && displayCtx ? "WebGL мир" : "fallback";
 
+  // Heat control: pause in background, cap FPS, render shader a bit below native res
+  const TARGET_FPS = 30;
+  const FRAME_MS = 1000 / TARGET_FPS;
+  const RENDER_SCALE = 0.7;
+  let lastFrameAt = 0;
+  let rafId = 0;
+  let ringRafId = 0;
+  let pageVisible = document.visibilityState !== "hidden";
+
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
     const dpr = 1;
     const w = Math.floor(width * dpr);
     const h = Math.floor(height * dpr);
+    const gw = Math.max(1, Math.floor(w * RENDER_SCALE));
+    const gh = Math.max(1, Math.floor(h * RENDER_SCALE));
     canvas.width = w;
     canvas.height = h;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    glCanvas.width = w;
-    glCanvas.height = h;
+    glCanvas.width = gw;
+    glCanvas.height = gh;
     if (sky) {
-      sky.gl.viewport(0, 0, w, h);
+      sky.gl.viewport(0, 0, gw, gh);
       sky.gl.clearColor(0.024, 0.063, 0.094, 1.0);
       sky.gl.clear(sky.gl.COLOR_BUFFER_BIT);
     }
@@ -519,6 +530,11 @@
   }
 
   function frame(now) {
+    rafId = requestAnimationFrame(frame);
+    if (!pageVisible) return;
+    if (now - lastFrameAt < FRAME_MS - 0.5) return;
+    lastFrameAt = now;
+
     const t = now * 0.001;
     mouse.x += (mouse.tx - mouse.x) * 0.05;
     mouse.y += (mouse.ty - mouse.y) * 0.05;
@@ -542,11 +558,24 @@
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       // Blit to visible 2D canvas — no WebGL compositor tile on screen
       displayCtx.globalCompositeOperation = "copy";
-      displayCtx.drawImage(glCanvas, 0, 0, w, h);
+      displayCtx.drawImage(glCanvas, 0, 0, canvas.width, canvas.height);
     }
-
-    requestAnimationFrame(frame);
   }
+
+  function startLoop() {
+    if (!rafId) rafId = requestAnimationFrame(frame);
+  }
+
+  function stopLoop() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    pageVisible = document.visibilityState !== "hidden";
+    if (pageVisible) startLoop();
+    else stopLoop();
+  });
 
   function remap(v, a, b, c, d) {
     const t = (v - a) / Math.max(b - a, 0.0001);
