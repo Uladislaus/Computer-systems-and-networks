@@ -354,39 +354,36 @@
         }
       }
 
-      // Distant silver school — soft mid-water dashes, quiet, no hard sprites / glints
+      // Distant silver school — separate soft capsules (readable fish, not one murk blotch)
       if (showSilver > 0.01) {
-        float tS = u_time * 0.28;
+        float tS = u_time * 0.26;
         float ping = 0.5 - 0.5 * cos(tS);
         float vel = sin(tS);
-        // face only shifts packing offset; bodies stay soft ellipses (no angular flip art)
-        float face = mix(-1.0, 1.0, smoothstep(-0.4, 0.4, vel));
-        float packX = aspect * (0.22 + ping * 0.48);
-        float packY = 0.34 + sin(u_time * 0.18) * 0.025;
-        float school = 0.0;
-        for (int i = 0; i < 16; i++) {
+        float face = mix(-1.0, 1.0, smoothstep(-0.35, 0.35, vel));
+        float packX = aspect * (0.2 + ping * 0.5);
+        float packY = 0.38 + sin(u_time * 0.2) * 0.03;
+        for (int i = 0; i < 12; i++) {
           float fi = float(i);
           float seed = hash(vec2(fi, 0.7));
           float seed2 = hash(vec2(fi, 2.1));
           float seed3 = hash(vec2(fi, 4.4));
-          float ox = (seed - 0.5) * 0.2 + sin(u_time * 0.7 + fi * 1.4) * 0.01;
-          float oy = (seed2 - 0.5) * 0.11 + cos(u_time * 0.55 + fi * 0.9) * 0.008;
-          // slight depth layers: farther fish = tinier + dimmer
-          float depthL = mix(0.55, 1.0, seed3);
-          float fx = packX + ox * face * 0.15 + ox;
+          // loose flock with gaps so bodies don't fuse into one blob
+          float ox = (seed - 0.5) * 0.32 + sin(u_time * 0.75 + fi * 1.6) * 0.012;
+          float oy = (seed2 - 0.5) * 0.18 + cos(u_time * 0.6 + fi * 1.1) * 0.01;
+          float fx = packX + ox;
           float fy = packY + oy;
-          float sx = mix(5.5, 9.5, seed) * depthL;
-          float sy = mix(14.0, 22.0, seed2) * depthL;
-          vec2 fp = vec2((x - fx) * sx, (y - fy) * sy);
-          // elongated soft dash + faint trailing taper
-          float body = exp(-dot(fp, fp));
-          float tail = exp(-pow((x - fx + 0.012 * face) * (sx * 0.7), 2.0)
-                         - pow((y - fy) * (sy * 1.15), 2.0));
-          school += (body * 0.7 + tail * 0.25) * mix(0.35, 1.0, depthL);
+          float dx = (x - fx) * face;
+          float dy = y - fy;
+          // thin soft capsule — longer than tall, soft falloff (no hard edges / glints)
+          float len = mix(0.016, 0.026, seed);
+          float halfH = mix(0.0028, 0.0045, seed2);
+          float fish = smoothstep(halfH * 1.6, 0.0, abs(dy))
+                     * smoothstep(len, 0.0, abs(dx));
+          // gentle nose/tail taper so it reads as a dash-fish, not a rectangle
+          fish *= smoothstep(len * 1.05, len * 0.15, abs(dx) + abs(dy) * 2.8);
+          float dim = mix(0.45, 0.85, seed3);
+          col += vec3(0.42, 0.55, 0.62) * fish * 0.55 * dim * d * showSilver;
         }
-        // tint into the water — never additive white flash
-        vec3 silver = vec3(0.22, 0.32, 0.38);
-        col = mix(col, col * 0.55 + silver, clamp(school * 0.28, 0.0, 0.45) * d * showSilver);
       }
 
       // Floating seaweed — free ribbons drifting mid-water (not rooted to a floor)
@@ -410,26 +407,25 @@
         }
       }
 
-      // Nearer dark school — soft silhouettes; same smooth pack travel
+      // Nearer dark school — sparse soft silhouettes (keep gaps; avoid one big murk patch)
       if (showFish > 0.01) {
-        float tF = u_time * 0.28;
+        float tF = u_time * 0.24;
         float ping = 0.5 - 0.5 * cos(tF);
-        float school = 0.0;
-        for (int i = 0; i < 8; i++) {
+        float face = mix(-1.0, 1.0, smoothstep(-0.35, 0.35, sin(tF)));
+        for (int i = 0; i < 7; i++) {
           float fi = float(i);
           float seed = hash(vec2(fi, 1.0));
           float seed2 = hash(vec2(fi, 3.2));
-          float phase = u_time * 0.55 + fi * 0.7;
-          float fx = aspect * (0.18 + ping * 0.55) + (seed - 0.5) * 0.2 + sin(phase) * 0.03;
-          float fy = 0.46 + (seed2 - 0.5) * 0.12 + sin(phase * 1.3 + fi) * 0.04;
-          float sx = mix(2.6, 4.0, seed);
-          float sy = mix(5.5, 9.0, seed2);
-          vec2 fp = vec2((x - fx) * sx, (y - fy) * sy);
-          float body = exp(-dot(fp, fp));
-          float tail = exp(-pow((x - fx + 0.016) * 9.0, 2.0) - pow((y - fy) * 14.0, 2.0));
-          school += body * 0.9 + tail * 0.35;
+          float ox = (seed - 0.5) * 0.36;
+          float oy = (seed2 - 0.5) * 0.2;
+          float fx = aspect * (0.18 + ping * 0.52) + ox + sin(u_time * 0.5 + fi) * 0.02;
+          float fy = 0.48 + oy + cos(u_time * 0.4 + fi * 1.3) * 0.015;
+          float dx = (x - fx) * face;
+          float dy = y - fy;
+          float fish = smoothstep(0.0055, 0.0, abs(dy)) * smoothstep(0.024, 0.0, abs(dx));
+          fish *= smoothstep(0.028, 0.008, abs(dx) + abs(dy) * 2.5);
+          col = mix(col, col * 0.25, fish * 0.55 * d * showFish);
         }
-        col = mix(col, col * 0.35 + vec3(0.04, 0.1, 0.12), clamp(school * 0.55, 0.0, 0.7) * d * showFish);
       }
 
       // Thermal plume — rising hot-gas bubbles (not a campfire)
