@@ -1436,13 +1436,16 @@ body,
         }
       }
 
-      // School of fish
+      // School of fish — elongated bodies, ping-pong across the frame (no teleport wrap)
       if (showFish > 0.01) {
         float school = 0.0;
         for (int i = 0; i < 8; i++) {
           float fi = float(i);
           float phase = u_time * 0.55 + fi * 0.7;
-          float fx = aspect * 0.2 + fract(fi * 0.11 + u_time * 0.03) * aspect * 0.55 + sin(phase) * 0.04;
+          // triangle wave 0→1→0 so the school drifts back instead of snapping
+          float trek = fi * 0.11 + u_time * 0.03;
+          float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
+          float fx = aspect * 0.2 + ping * aspect * 0.55 + sin(phase) * 0.04;
           float fy = 0.48 + sin(phase * 1.3 + fi) * 0.06 + (hash(vec2(fi, 1.0)) - 0.5) * 0.08;
           vec2 fp = vec2((x - fx) * 3.2, (y - fy) * 7.0);
           float body = exp(-dot(fp, fp));
