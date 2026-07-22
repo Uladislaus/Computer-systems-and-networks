@@ -269,90 +269,130 @@
       return col;
     }
 
-    // Underworld surprise: the aurora inverted — bioluminescent curtains, living star-schools, god-rays, leviathan
+    // Abyss: its own world — pressure, caustics, kelp, jellies, vents, trench. Not a recycled sky.
     vec3 paintAbyss(vec2 uv, float aspect, float dive) {
       float d = clamp(dive, 0.0, 1.0);
-      // Pressure darkens with depth (and lower in frame)
-      float pressure = pow(mix(0.35, 1.0, 1.0 - uv.y) * d, 1.1);
-      vec3 deepInk = vec3(0.0, 0.02, 0.05);
-      vec3 midTeal = vec3(0.01, 0.08, 0.14);
-      vec3 col = mix(midTeal, deepInk, pressure);
+      float y = uv.y;
+      float x = uv.x * aspect;
 
-      // Collapsing god-rays from where the surface used to be
-      float rayBand = fbm(vec2(uv.x * aspect * 3.2 + u_time * 0.08, uv.y * 0.6));
-      float rays = pow(max(rayBand - 0.45, 0.0), 1.6) * exp(-uv.y * 3.2) * (1.0 - d * 0.55);
-      col += vec3(0.15, 0.55, 0.65) * rays * 0.55 * d;
+      // Thick murk — colder and blacker the deeper you go
+      float pressure = pow(mix(0.25, 1.0, 1.0 - y) * mix(0.55, 1.0, d), 1.15);
+      vec3 shallowBlue = vec3(0.02, 0.12, 0.18);
+      vec3 trenchInk = vec3(0.0, 0.01, 0.025);
+      vec3 col = mix(shallowBlue, trenchInk, pressure);
 
-      // Bioluminescent curtains — sky aurora's twin in the deep
-      float aShift = -0.08 * d;
-      float c1 = auroraBand(uv, 0.55 + aShift, 0.04, 0.035, 11.0);
-      float c2 = auroraBand(uv, 0.38 + aShift, 0.03, 0.055, 14.5);
-      float c3 = auroraBand(uv, 0.22 + aShift, 0.028, 0.028, 17.2);
-      vec3 bio =
-        vec3(0.1, 0.95, 0.7) * c1 +
-        vec3(0.25, 0.55, 1.0) * c2 +
-        vec3(0.7, 0.25, 1.0) * c3;
-      col += bio * 0.55 * d * (0.45 + 0.55 * (1.0 - pressure));
-
-      // Plankton field — living stars of the deep
-      vec2 pGrid = uv * vec2(u_res.x / 4.5, u_res.y / 4.5) + vec2(u_time * 0.12, -u_time * 0.07);
-      vec2 pCell = floor(pGrid);
-      vec2 pLocal = fract(pGrid) - 0.5;
-      float pOn = step(0.986, hash(pCell + 19.0));
-      float pR = mix(0.02, 0.055, hash(pCell + 3.1));
-      float pDot = pOn * smoothstep(pR, 0.0, length(pLocal));
-      float pPulse = 0.5 + 0.5 * sin(u_time * (0.6 + hash(pCell) * 1.8) + hash(pCell + 1.7) * 6.28);
-      vec3 pCol = mix(vec3(0.3, 1.0, 0.85), vec3(0.55, 0.75, 1.0), hash(pCell + 8.8));
-      col += pCol * pDot * pPulse * 1.1 * d;
-
-      // School constellation — a drifting "Big Dipper" of fish-lights
-      vec2 drift = vec2(sin(u_time * 0.11) * 0.08, -0.04 * d);
-      vec2 fp = vec2(uv.x * aspect, uv.y) + drift;
-      vec2 f0 = vec2(aspect * 0.22, 0.42);
-      vec2 f1 = vec2(aspect * 0.30, 0.46);
-      vec2 f2 = vec2(aspect * 0.38, 0.44);
-      vec2 f3 = vec2(aspect * 0.46, 0.38);
-      vec2 f4 = vec2(aspect * 0.45, 0.30);
-      vec2 f5 = vec2(aspect * 0.54, 0.28);
-      vec2 f6 = vec2(aspect * 0.56, 0.36);
-      float school =
-        constellStar(fp, f0, 0.005, 0.2, 0.7) +
-        constellStar(fp, f1, 0.0055, 0.8, 0.9) +
-        constellStar(fp, f2, 0.006, 1.4, 0.8) +
-        constellStar(fp, f3, 0.0045, 2.0, 1.0) +
-        constellStar(fp, f4, 0.005, 2.6, 0.85) +
-        constellStar(fp, f5, 0.0055, 3.2, 0.75) +
-        constellStar(fp, f6, 0.0065, 3.8, 0.95);
-      float schoolLines =
-        constellLine(fp, f0, f1) + constellLine(fp, f1, f2) +
-        constellLine(fp, f2, f3) + constellLine(fp, f3, f4) +
-        constellLine(fp, f4, f5) + constellLine(fp, f5, f6) +
-        constellLine(fp, f6, f3);
-      col += vec3(0.45, 0.95, 1.0) * school * 1.2 * d;
-      col += vec3(0.2, 0.5, 0.7) * schoolLines * 0.25 * d;
-
-      // Rising bubbles
-      for (int i = 0; i < 5; i++) {
-        float fi = float(i);
-        float bx = fract(hash(vec2(fi, 2.2)) + u_time * mix(0.02, 0.05, hash(vec2(fi, 1.1))));
-        float by = fract(hash(vec2(fi, 4.4)) + u_time * mix(0.08, 0.16, hash(vec2(fi, 3.3))));
-        vec2 b = vec2(bx * aspect, by);
-        float br = mix(0.004, 0.012, hash(vec2(fi, 5.5)));
-        float bubble = smoothstep(br, 0.0, length(vec2(uv.x * aspect, uv.y) - b));
-        col += vec3(0.55, 0.85, 1.0) * bubble * 0.35 * d;
+      // Distant trench floor relief
+      float floorH = 0.08 + 0.04 * noise(vec2(x * 1.4, 2.2)) + 0.025 * noise(vec2(x * 3.5, 5.1));
+      if (y < floorH) {
+        float ft = clamp(y / max(floorH, 0.001), 0.0, 1.0);
+        vec3 silt = mix(vec3(0.02, 0.04, 0.05), vec3(0.05, 0.09, 0.1), ft);
+        silt += vec3(0.04, 0.1, 0.12) * noise(vec2(x * 8.0, y * 14.0)) * 0.25;
+        col = mix(col, silt, smoothstep(floorH + 0.02, floorH - 0.01, y));
       }
 
-      // Soft leviathan silhouette drifting through the mid-depth
-      float body = exp(-pow((uv.x * aspect - (aspect * 0.62 + sin(u_time * 0.07) * 0.12)) * 1.8, 2.0) * 2.5
-                       - pow((uv.y - 0.36) * 5.5, 2.0));
-      float fin = exp(-pow((uv.x * aspect - (aspect * 0.70 + sin(u_time * 0.07) * 0.12)) * 3.0, 2.0) * 3.0
-                      - pow((uv.y - 0.30) * 8.0, 2.0));
-      col -= vec3(0.02, 0.04, 0.05) * (body * 0.85 + fin * 0.45) * d * pressure;
+      // Moving caustics — warped lattice of light, dies with depth (not aurora ribbons)
+      float cax = x * 6.0 + u_time * 0.35 + fbm(vec2(x * 1.2, y * 2.0 + u_time * 0.1)) * 1.8;
+      float cay = y * 9.0 - u_time * 0.2;
+      float caust = pow(0.5 + 0.5 * sin(cax) * sin(cay * 1.3 + sin(cax * 0.7)), 3.0);
+      caust *= exp(-pressure * 3.2) * smoothstep(0.0, 0.55, y) * d;
+      col += vec3(0.12, 0.55, 0.62) * caust * 0.55;
 
-      // Mouse glow — a dive lamp
-      vec2 p = vec2(uv.x * aspect, uv.y);
+      // Soft shafts of filtered surface light (angled volumes, not sky curtains)
+      float shaft = 0.0;
+      for (int i = 0; i < 4; i++) {
+        float fi = float(i);
+        float sx = aspect * mix(0.15, 0.85, (fi + 0.5) / 4.0) + sin(u_time * 0.15 + fi) * 0.04;
+        float ang = (x - sx) * 2.2 + (1.0 - y) * 0.35;
+        shaft += exp(-ang * ang * mix(18.0, 40.0, fi / 3.0)) * exp(-(1.0 - y) * 1.8);
+      }
+      col += vec3(0.08, 0.28, 0.34) * shaft * 0.4 * (1.0 - pressure * 0.7) * d;
+
+      // Kelp forest — tall swaying ribbons from the floor
+      for (int i = 0; i < 7; i++) {
+        float fi = float(i);
+        float kx = aspect * (0.08 + fi * 0.13) + sin(u_time * 0.4 + fi * 1.7) * 0.03;
+        float sway = sin(y * 9.0 - u_time * 1.1 + fi) * 0.018 * y;
+        float kd = abs(x - (kx + sway));
+        float height = mix(0.35, 0.72, hash(vec2(fi, 9.1)));
+        float blade = smoothstep(0.018, 0.0, kd) * smoothstep(0.0, 0.05, y) * smoothstep(height, height - 0.12, y);
+        blade *= 0.55 + 0.45 * noise(vec2(fi * 3.0, y * 12.0 - u_time));
+        col = mix(col, vec3(0.02, 0.12, 0.08), blade * 0.85 * d);
+        // thinner secondary frond
+        float kd2 = abs(x - (kx + sway * 1.4 + 0.012));
+        float frond = smoothstep(0.008, 0.0, kd2) * smoothstep(0.05, 0.1, y) * smoothstep(height * 0.85, height * 0.85 - 0.1, y);
+        col = mix(col, vec3(0.03, 0.16, 0.1), frond * 0.55 * d);
+      }
+
+      // Jellyfish — translucent bells + trailing tentacles
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float jx = aspect * mix(0.25, 0.8, hash(vec2(fi, 1.3))) + sin(u_time * 0.22 + fi * 2.0) * 0.06;
+        float jy = mix(0.35, 0.7, hash(vec2(fi, 2.4))) + sin(u_time * 0.35 + fi) * 0.03;
+        vec2 jp = vec2(x - jx, (y - jy) * 1.35);
+        float bell = smoothstep(0.07, 0.0, length(jp * vec2(1.0, 1.35)));
+        float rim = smoothstep(0.07, 0.045, length(jp * vec2(1.0, 1.35))) - smoothstep(0.045, 0.02, length(jp * vec2(1.0, 1.35)));
+        col += vec3(0.35, 0.85, 0.9) * bell * 0.18 * d;
+        col += vec3(0.7, 0.95, 1.0) * max(rim, 0.0) * 0.35 * d;
+        // tentacles
+        for (int t = 0; t < 4; t++) {
+          float ft = float(t);
+          float tx = jx + (ft - 1.5) * 0.012 + sin(y * 25.0 - u_time * 1.4 + ft + fi) * 0.008;
+          float ty0 = jy - 0.02;
+          float ty1 = jy - mix(0.14, 0.22, hash(vec2(fi, ft)));
+          float along = smoothstep(ty0, ty0 - 0.01, y) * smoothstep(ty1 - 0.02, ty1, y);
+          float td = abs(x - tx);
+          col += vec3(0.45, 0.8, 0.85) * smoothstep(0.004, 0.0, td) * along * 0.22 * d;
+        }
+      }
+
+      // Hydrothermal vent — warm column against the cold
+      float vx = aspect * 0.78 + sin(u_time * 0.05) * 0.02;
+      float ventCore = exp(-pow((x - vx) * 14.0, 2.0)) * smoothstep(0.0, 0.12, y) * smoothstep(0.55, 0.15, y);
+      float boil = fbm(vec2((x - vx) * 20.0, y * 14.0 - u_time * 0.9));
+      col += vec3(1.0, 0.45, 0.15) * ventCore * (0.35 + boil * 0.55) * d * 0.65;
+      col += vec3(0.9, 0.7, 0.35) * ventCore * boil * 0.35 * d;
+      // ember particles rising from the vent
+      for (int i = 0; i < 6; i++) {
+        float fi = float(i);
+        float py = fract(hash(vec2(fi, 4.4)) + u_time * mix(0.12, 0.22, hash(vec2(fi, 0.7))));
+        float px = vx + (hash(vec2(fi, 8.1)) - 0.5) * 0.08 + sin(py * 10.0 + fi) * 0.01;
+        float pr = mix(0.003, 0.008, hash(vec2(fi, 3.3)));
+        float ember = smoothstep(pr, 0.0, length(vec2(x - px, y - py)));
+        col += vec3(1.0, 0.55, 0.2) * ember * 0.8 * d * smoothstep(0.55, 0.1, py);
+      }
+
+      // School of fish — elongated bodies, not dots/lines
+      float school = 0.0;
+      for (int i = 0; i < 8; i++) {
+        float fi = float(i);
+        float phase = u_time * 0.55 + fi * 0.7;
+        float fx = aspect * 0.2 + fract(fi * 0.11 + u_time * 0.03) * aspect * 0.55 + sin(phase) * 0.04;
+        float fy = 0.48 + sin(phase * 1.3 + fi) * 0.06 + (hash(vec2(fi, 1.0)) - 0.5) * 0.08;
+        vec2 fp = vec2((x - fx) * 3.2, (y - fy) * 7.0);
+        float body = exp(-dot(fp, fp));
+        // tiny tail flick
+        float tail = exp(-pow((x - fx + 0.018) * 8.0, 2.0) - pow((y - fy) * 14.0, 2.0));
+        school += body * 0.9 + tail * 0.35;
+      }
+      col = mix(col, col * 0.35 + vec3(0.04, 0.1, 0.12), clamp(school * 0.55, 0.0, 0.7) * d);
+
+      // Marine snow — soft flakes drifting (not twinkling stars)
+      float snow = 0.0;
+      for (int i = 0; i < 5; i++) {
+        float fi = float(i);
+        float sy = fract(hash(vec2(fi, 2.2)) - u_time * mix(0.03, 0.07, hash(vec2(fi, 1.1))));
+        float sx = fract(hash(vec2(fi, 6.6)) + sin(u_time * 0.2 + fi) * 0.02) * aspect;
+        float sr = mix(0.0025, 0.006, hash(vec2(fi, 9.9)));
+        snow += smoothstep(sr, 0.0, length(vec2(x - sx, y - sy))) * 0.35;
+      }
+      col += vec3(0.55, 0.7, 0.75) * snow * 0.25 * d;
+
+      // Dive lamp around cursor — reveals local murk color
+      vec2 p = vec2(x, y);
       vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
-      col += vec3(0.4, 0.85, 1.0) * exp(-length((p - m) * vec2(1.4, 1.8)) * 4.5) * 0.22 * d;
+      float lamp = exp(-length((p - m) * vec2(1.3, 1.6)) * 3.8);
+      col += vec3(0.25, 0.55, 0.6) * lamp * 0.28 * d;
+      col += vec3(0.9, 0.95, 0.85) * pow(lamp, 3.0) * 0.15 * d;
 
       return col;
     }
@@ -397,6 +437,9 @@
       float dusk = exp(-abs(uv.y - horizon) * 11.0) * landAmt;
       col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.28);
 
+      // Sky visibility dies before ocean/abyss — prevents star flicker when horizon lifts on dive
+      float skyVis = (1.0 - dawnAmt) * (1.0 - waterAmt) * (1.0 - diveAmt);
+
       // Point stars: unique size, brightness, tint, and twinkle per cell
       vec2 starGrid = uv * vec2(u_res.x / 3.0, u_res.y / 3.0);
       vec2 starCell = floor(starGrid);
@@ -407,7 +450,7 @@
       float tintSeed = hash(starCell + vec2(8.4, 3.3));
       float starRadius = mix(0.028, 0.07, sizeSeed); // tiny … a bit larger
       float starDot = starOn * smoothstep(starRadius, 0.0, length(starLocal));
-      starDot *= (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
+      starDot *= skyVis * smoothstep(crestApprox + 0.06, 0.7, uv.y);
       float twSeed = hash(starCell + vec2(3.1, 7.7));
       float twPhase = hash(starCell + vec2(9.2, 1.4)) * 6.2831853;
       float twSpeed = 0.25 + twSeed * 1.1;
@@ -419,8 +462,8 @@
       float starBright = mix(0.35, 1.15, brightSeed);
       col += starCol * starDot * twinkle * starBright;
 
-      // Constellations: Big Dipper (Ursa Major) + Scorpius — brighter named stars
-      float skyStars = (1.0 - dawnAmt) * smoothstep(crestApprox + 0.1, 0.75, uv.y);
+      // Constellations: Big Dipper (Ursa Major) + Scorpius — sky biome only
+      float skyStars = skyVis * smoothstep(crestApprox + 0.1, 0.75, uv.y);
       if (skyStars > 0.01) {
         vec2 p = vec2(uv.x * aspect, uv.y);
 
@@ -478,8 +521,10 @@
 
       // Aurora reaches down to just above the ridge — gap ~half of the old black strip
       float auroraShift = -landAmt * 0.04 - pullBack * 0.03;
-      float auroraMask = smoothstep(crestApprox + 0.03, crestApprox + 0.12, uv.y) * auroraAmt;
-      col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
+      float auroraMask = smoothstep(crestApprox + 0.03, crestApprox + 0.12, uv.y) * auroraAmt * (1.0 - waterAmt) * (1.0 - diveAmt);
+      if (auroraMask > 0.001) {
+        col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
+      }
 
       // --- Layered ridge under an open sky ---
       if (rise > 0.001) {
@@ -507,9 +552,9 @@
       }
 
       // --- Abyss: full-frame underwater after the surface folds away ---
-      if (abyssAmt > 0.01) {
-        vec3 deep = paintAbyss(uv, aspect, abyssAmt);
-        float plunge = smoothstep(0.05, 0.75, abyssAmt);
+      if (diveAmt > 0.01) {
+        vec3 deep = paintAbyss(uv, aspect, max(abyssAmt, diveAmt));
+        float plunge = smoothstep(0.02, 0.55, diveAmt);
         col = mix(col, deep, plunge);
       }
 
