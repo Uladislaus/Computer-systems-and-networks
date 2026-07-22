@@ -379,9 +379,7 @@
       // Aurora reaches down to just above the ridge — gap ~half of the old black strip
       float auroraShift = -landAmt * 0.04 - pullBack * 0.03;
       float auroraMask = smoothstep(crestApprox + 0.03, crestApprox + 0.12, uv.y) * auroraAmt;
-      if (auroraMask > 0.001) {
-        col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
-      }
+      col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
 
       // --- Layered ridge under an open sky ---
       if (rise > 0.001) {
@@ -389,12 +387,10 @@
         col = mix(col, land, smoothstep(0.0, 0.2, rise));
       }
 
-      // Wind only above the crest (skip when not in wind biome — same pixels)
-      if (windAmt > 0.001) {
-        float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
-        float windZone = smoothstep(crestApprox, crestApprox + 0.1, uv.y);
-        col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * windZone * windAmt * 0.16;
-      }
+      // Wind only above the crest
+      float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
+      float windZone = smoothstep(crestApprox, crestApprox + 0.1, uv.y);
+      col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * windZone * windAmt * 0.16;
 
       // --- Sea replaces ground below horizon; peaks stay above and shrink via pullBack ---
       if (waterAmt > 0.01 && uv.y < horizon + 0.03) {
@@ -524,9 +520,9 @@
     if (!pageVisible) return;
 
     const t = now * 0.001;
-    mouse.x += (mouse.tx - mouse.x) * 0.08;
-    mouse.y += (mouse.ty - mouse.y) * 0.08;
-    worldSmooth += (world - worldSmooth) * 0.08;
+    mouse.x += (mouse.tx - mouse.x) * 0.05;
+    mouse.y += (mouse.ty - mouse.y) * 0.05;
+    worldSmooth += (world - worldSmooth) * 0.06;
 
     if (sky) {
       const { gl, program, aPos, uniforms, buffer } = sky;
@@ -651,9 +647,8 @@
         if (!pageVisible) return;
         const tx = parseFloat(cursorRing.dataset.tx || rx);
         const ty = parseFloat(cursorRing.dataset.ty || ry);
-        // Snappy follow — intentional lag, not a 12fps/throttled trail
-        rx += (tx - rx) * 0.28;
-        ry += (ty - ry) * 0.28;
+        rx += (tx - rx) * 0.16;
+        ry += (ty - ry) * 0.16;
         cursorRing.style.left = `${rx}px`;
         cursorRing.style.top = `${ry}px`;
       };
