@@ -157,11 +157,11 @@
       float xMid = xBase * aspect * 1.1 + 0.4;
       float xNear = xBase * aspect * 1.3 + 0.95;
 
-      // Crest stays in lower half — sky/aurora keep the top (refs ~25–35% sky)
-      float hFar2 = (0.04 + ridgeProfile(xFar2, 0.05, 0.7) * 0.2) * far2Amt;
-      float hFar = (0.035 + ridgeProfile(xFar, 0.2, 0.55) * 0.18) * farAmt;
-      float hMid = (0.025 + ridgeProfile(xMid, 1.4, 0.35) * 0.15) * midAmt;
-      float hNear = (0.015 + ridgeProfile(xNear, 2.8, 0.2) * 0.14) * nearAmt;
+      // Shorter crests — leave the upper frame to sky/aurora; ridge owns the lower band
+      float hFar2 = (0.03 + ridgeProfile(xFar2, 0.05, 0.7) * 0.14) * far2Amt;
+      float hFar = (0.025 + ridgeProfile(xFar, 0.2, 0.55) * 0.13) * farAmt;
+      float hMid = (0.018 + ridgeProfile(xMid, 1.4, 0.35) * 0.11) * midAmt;
+      float hNear = (0.012 + ridgeProfile(xNear, 2.8, 0.2) * 0.10) * nearAmt;
 
       float yFar2 = horizon + hFar2;
       float yFar = horizon + hFar;
@@ -271,18 +271,21 @@
       float aspect = u_res.x / max(u_res.y, 1.0);
       float w = clamp(u_world, 0.0, 1.0);
 
-      // Descent: sky → approach ridge on horizon → peaks grow → sea floods below, peaks sink back
-      float landAmt = smoothstep(0.08, 0.36, w);
-      float auroraAmt = 1.0 - smoothstep(0.2, 0.52, w);
-      float dawnAmt = smoothstep(0.14, 0.48, w);
-      float windAmt = smoothstep(0.16, 0.44, w) * (1.0 - smoothstep(0.62, 0.88, w));
+      // Descent: pure night sky → ridge arrives later → peaks grow → sea floods, peaks sink back
+      // First biome must be sky-only — no ridge silhouette / bottom soil stealing the frame
+      float landAmt = smoothstep(0.30, 0.52, w);
+      float auroraAmt = 1.0 - smoothstep(0.28, 0.58, w);
+      float dawnAmt = smoothstep(0.30, 0.55, w);
+      float windAmt = smoothstep(0.32, 0.50, w) * (1.0 - smoothstep(0.62, 0.88, w));
       float waterAmt = smoothstep(0.5, 0.96, w);
       // Pull ranges back as soon as the sea starts — avoids a dark slab sitting on the water
       float pullBack = max(smoothstep(0.48, 0.98, w), smoothstep(0.5, 0.78, waterAmt));
 
-      // Horizon lower so ranges sit in the bottom half; sky stays open above
-      float horizon = mix(0.22, 0.5, waterAmt);
-      float horizonHint = smoothstep(0.04, 0.2, w);
+      // Horizon sits off-screen in pure sky, then climbs in only with the ridge biome
+      float landGate = smoothstep(0.28, 0.48, w);
+      float horizon = mix(-0.06, 0.16, landGate);
+      horizon = mix(horizon, 0.5, waterAmt);
+      float horizonHint = landGate;
 
       // --- Sky ---
       vec3 night = mix(vec3(0.01, 0.025, 0.04), vec3(0.004, 0.01, 0.03), uv.y);
@@ -290,12 +293,12 @@
       dawn += vec3(1.0, 0.7, 0.35) * exp(-length(vec2((uv.x - 0.72) * aspect, uv.y - 0.4) * vec2(2.2, 3.5)) * 3.5) * 0.5;
       vec3 col = mix(night, dawn, dawnAmt);
 
-      float rise = max(landAmt, horizonHint * 0.4);
-      float crestApprox = horizon + 0.28 * rise * (1.0 - pullBack * 0.65);
+      float rise = landAmt; // no early "hint" peaks in the night-sky frame
+      float crestApprox = max(horizon, 0.0) + 0.22 * rise * (1.0 - pullBack * 0.65);
 
-      // Narrow dusk right at the seam — was painting a wide black belt over the aurora
-      float dusk = exp(-abs(uv.y - horizon) * 11.0) * max(horizonHint, landAmt);
-      col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.3);
+      // Dusk only once the ridge is actually arriving — not a fake bottom belt in sky
+      float dusk = exp(-abs(uv.y - horizon) * 11.0) * landAmt;
+      col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.28);
 
       // Point stars: unique size, brightness, tint, and twinkle per cell
       vec2 starGrid = uv * vec2(u_res.x / 3.0, u_res.y / 3.0);
@@ -583,8 +586,10 @@
     const seaTop = seaEl ? seaEl.offsetTop : ridgeTop * 2;
     const max = document.documentElement.scrollHeight - window.innerHeight;
 
-    // Hold aurora, then long approach through ridge, then slow sink into sea
-    if (y < ridgeTop) world = remap(y, 0, ridgeTop, 0, 0.34);
+    // Hold pure night sky for the first viewport — no ridge peeking in yet
+    const skyHold = window.innerHeight * 0.72;
+    if (y < skyHold) world = 0;
+    else if (y < ridgeTop) world = remap(y, skyHold, ridgeTop, 0, 0.34);
     else if (y < seaTop) world = remap(y, ridgeTop, seaTop, 0.34, 0.62);
     else world = remap(y, seaTop, max + window.innerHeight * 0.4, 0.62, 1);
 
