@@ -354,56 +354,39 @@
         }
       }
 
-      // Silver school — organic pack, varied silhouettes, cos travel (no snap turn)
+      // Distant silver school — soft mid-water dashes, quiet, no hard sprites / glints
       if (showSilver > 0.01) {
-        float tS = u_time * 0.32;
-        // position eases to a stop before reversing; heading follows velocity smoothly
+        float tS = u_time * 0.28;
         float ping = 0.5 - 0.5 * cos(tS);
         float vel = sin(tS);
-        float heading = mix(3.14159, 0.0, smoothstep(-0.35, 0.35, vel));
-        float packX = aspect * (0.2 + ping * 0.52);
-        float packY = 0.36 + sin(u_time * 0.2) * 0.028;
-        for (int i = 0; i < 14; i++) {
+        // face only shifts packing offset; bodies stay soft ellipses (no angular flip art)
+        float face = mix(-1.0, 1.0, smoothstep(-0.4, 0.4, vel));
+        float packX = aspect * (0.22 + ping * 0.48);
+        float packY = 0.34 + sin(u_time * 0.18) * 0.025;
+        float school = 0.0;
+        for (int i = 0; i < 16; i++) {
           float fi = float(i);
           float seed = hash(vec2(fi, 0.7));
           float seed2 = hash(vec2(fi, 2.1));
           float seed3 = hash(vec2(fi, 4.4));
-          float seed4 = hash(vec2(fi, 6.8));
-          // loose flock — staggered lanes, not a grid
-          float lane = floor(seed * 3.0);
-          float ox = (seed - 0.5) * 0.26 + sin(u_time * 0.85 + fi * 1.7) * 0.014;
-          float oy = (lane - 1.0) * 0.038 + (seed2 - 0.5) * 0.05
-                   + cos(u_time * 0.65 + fi * 1.1) * 0.012;
-          float fx = packX + ox;
+          float ox = (seed - 0.5) * 0.2 + sin(u_time * 0.7 + fi * 1.4) * 0.01;
+          float oy = (seed2 - 0.5) * 0.11 + cos(u_time * 0.55 + fi * 0.9) * 0.008;
+          // slight depth layers: farther fish = tinier + dimmer
+          float depthL = mix(0.55, 1.0, seed3);
+          float fx = packX + ox * face * 0.15 + ox;
           float fy = packY + oy;
-          float scale = mix(0.72, 1.35, seed3);
-          float ang = heading + (seed4 - 0.5) * 0.55 + sin(u_time * 1.1 + fi * 0.8) * 0.08;
-          float ca = cos(ang);
-          float sa = sin(ang);
-          float lx = ((x - fx) * ca + (y - fy) * sa) / scale;
-          float ly = (-(x - fx) * sa + (y - fy) * ca) / scale;
-          // three hard profiles: needle / wedge / plump
-          float body = 0.0;
-          if (seed < 0.34) {
-            float halfH = mix(0.0045, 0.0018, clamp(lx * 0.55 + 0.5, 0.0, 1.0));
-            body = step(abs(ly), halfH) * step(abs(lx), 0.028);
-          } else if (seed < 0.68) {
-            float along = clamp(lx / 0.03 + 0.5, 0.0, 1.0);
-            float halfH = mix(0.007, 0.0015, along);
-            body = step(abs(ly), halfH) * step(abs(lx), 0.03);
-          } else {
-            body = step(length(vec2(lx * 1.55, ly * 3.4)), 0.028);
-          }
-          // forked tail behind the body
-          float tail = step(lx, -0.012) * step(-0.032, lx)
-                     * step(abs(ly), mix(0.006, 0.001, (-lx - 0.012) / 0.02));
-          float glint = body * step(abs(ly - 0.0012), 0.0011) * step(abs(lx), 0.016)
-                      * (0.3 + 0.7 * step(0.5, sin(u_time * 2.8 + fi * 2.2 + seed * 5.0)));
-          float tone = mix(0.5, 1.0, seed2);
-          col += vec3(0.58, 0.7, 0.8) * body * 0.95 * tone * d * showSilver;
-          col += vec3(0.42, 0.52, 0.6) * tail * 0.7 * d * showSilver;
-          col += vec3(0.92, 0.98, 1.0) * glint * 0.9 * d * showSilver;
+          float sx = mix(5.5, 9.5, seed) * depthL;
+          float sy = mix(14.0, 22.0, seed2) * depthL;
+          vec2 fp = vec2((x - fx) * sx, (y - fy) * sy);
+          // elongated soft dash + faint trailing taper
+          float body = exp(-dot(fp, fp));
+          float tail = exp(-pow((x - fx + 0.012 * face) * (sx * 0.7), 2.0)
+                         - pow((y - fy) * (sy * 1.15), 2.0));
+          school += (body * 0.7 + tail * 0.25) * mix(0.35, 1.0, depthL);
         }
+        // tint into the water — never additive white flash
+        vec3 silver = vec3(0.22, 0.32, 0.38);
+        col = mix(col, col * 0.55 + silver, clamp(school * 0.28, 0.0, 0.45) * d * showSilver);
       }
 
       // Floating seaweed — free ribbons drifting mid-water (not rooted to a floor)
