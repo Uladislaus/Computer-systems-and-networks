@@ -228,9 +228,11 @@
       return col;
     }
 
-    vec3 oceanWater(vec2 uv, float aspect, float waterLine) {
+    // surfaceAmt: 0 = waves fully folded, 1 = full surface (opens with ocean, closes when diving)
+    vec3 oceanWater(vec2 uv, float aspect, float waterLine, float surfaceAmt) {
       float depth = clamp((waterLine - uv.y) / max(waterLine, 0.001), 0.0, 1.0);
       float persp = pow(depth, 1.35);
+      float surf = clamp(surfaceAmt, 0.0, 1.0);
 
       vec3 deep = vec3(0.01, 0.07, 0.12);
       vec3 mid = vec3(0.02, 0.2, 0.3);
@@ -240,29 +242,118 @@
 
       float waves = 0.0;
       float foam = 0.0;
+      // Same 12-row breath as before — amp/foam scale with surfaceAmt (unfold / fold)
       for (int i = 0; i < 12; i++) {
         float fi = float(i);
         float t = (fi + 1.0) / 12.0;
         float rowDepth = pow(t, 1.55);
         float row = waterLine - rowDepth * waterLine * 0.98;
         float dens = mix(28.0, 3.5, rowDepth);
-        float amp = mix(0.004, 0.028, rowDepth);
+        float amp = mix(0.004, 0.028, rowDepth) * surf;
         float speed = mix(1.4, 0.55, rowDepth);
         float phase = uv.x * aspect * dens + u_time * speed + u_mouse.x * 1.8 + fi * 1.7;
         float y = row + sin(phase) * amp + sin(phase * 2.1 + fi) * amp * 0.35;
-        float line = exp(-abs(uv.y - y) * mix(70.0, 18.0, rowDepth));
+        float line = exp(-abs(uv.y - y) * mix(70.0, 18.0, rowDepth)) * surf;
         float crest = smoothstep(0.2, 0.95, sin(phase) * 0.5 + 0.5);
         waves += line * mix(0.25, 0.7, rowDepth);
         foam += line * crest * mix(0.12, 0.85, rowDepth);
       }
 
       float foamPatch = fbm(vec2(uv.x * aspect * 3.5 - u_time * 0.15, uv.y * 6.0));
-      foam += smoothstep(0.55, 0.8, foamPatch) * persp * 0.35;
+      foam += smoothstep(0.55, 0.8, foamPatch) * persp * 0.35 * surf;
 
       float chop = fbm(vec2(uv.x * aspect * mix(14.0, 4.0, persp) - u_time * 0.25, uv.y * mix(30.0, 8.0, persp)));
       col += vec3(0.12, 0.45, 0.55) * waves;
-      col += vec3(0.04, 0.1, 0.12) * chop * persp * 0.35;
+      col += vec3(0.04, 0.1, 0.12) * chop * persp * 0.35 * mix(0.35, 1.0, surf);
       col = mix(col, vec3(0.88, 0.95, 0.98), clamp(foam, 0.0, 0.85));
+      return col;
+    }
+
+    // Underworld surprise: the aurora inverted — bioluminescent curtains, living star-schools, god-rays, leviathan
+    vec3 paintAbyss(vec2 uv, float aspect, float dive) {
+      float d = clamp(dive, 0.0, 1.0);
+      // Pressure darkens with depth (and lower in frame)
+      float pressure = pow(mix(0.35, 1.0, 1.0 - uv.y) * d, 1.1);
+      vec3 deepInk = vec3(0.0, 0.02, 0.05);
+      vec3 midTeal = vec3(0.01, 0.08, 0.14);
+      vec3 col = mix(midTeal, deepInk, pressure);
+
+      // Collapsing god-rays from where the surface used to be
+      float rayBand = fbm(vec2(uv.x * aspect * 3.2 + u_time * 0.08, uv.y * 0.6));
+      float rays = pow(max(rayBand - 0.45, 0.0), 1.6) * exp(-uv.y * 3.2) * (1.0 - d * 0.55);
+      col += vec3(0.15, 0.55, 0.65) * rays * 0.55 * d;
+
+      // Bioluminescent curtains — sky aurora's twin in the deep
+      float aShift = -0.08 * d;
+      float c1 = auroraBand(uv, 0.55 + aShift, 0.04, 0.035, 11.0);
+      float c2 = auroraBand(uv, 0.38 + aShift, 0.03, 0.055, 14.5);
+      float c3 = auroraBand(uv, 0.22 + aShift, 0.028, 0.028, 17.2);
+      vec3 bio =
+        vec3(0.1, 0.95, 0.7) * c1 +
+        vec3(0.25, 0.55, 1.0) * c2 +
+        vec3(0.7, 0.25, 1.0) * c3;
+      col += bio * 0.55 * d * (0.45 + 0.55 * (1.0 - pressure));
+
+      // Plankton field — living stars of the deep
+      vec2 pGrid = uv * vec2(u_res.x / 4.5, u_res.y / 4.5) + vec2(u_time * 0.12, -u_time * 0.07);
+      vec2 pCell = floor(pGrid);
+      vec2 pLocal = fract(pGrid) - 0.5;
+      float pOn = step(0.986, hash(pCell + 19.0));
+      float pR = mix(0.02, 0.055, hash(pCell + 3.1));
+      float pDot = pOn * smoothstep(pR, 0.0, length(pLocal));
+      float pPulse = 0.5 + 0.5 * sin(u_time * (0.6 + hash(pCell) * 1.8) + hash(pCell + 1.7) * 6.28);
+      vec3 pCol = mix(vec3(0.3, 1.0, 0.85), vec3(0.55, 0.75, 1.0), hash(pCell + 8.8));
+      col += pCol * pDot * pPulse * 1.1 * d;
+
+      // School constellation — a drifting "Big Dipper" of fish-lights
+      vec2 drift = vec2(sin(u_time * 0.11) * 0.08, -0.04 * d);
+      vec2 fp = vec2(uv.x * aspect, uv.y) + drift;
+      vec2 f0 = vec2(aspect * 0.22, 0.42);
+      vec2 f1 = vec2(aspect * 0.30, 0.46);
+      vec2 f2 = vec2(aspect * 0.38, 0.44);
+      vec2 f3 = vec2(aspect * 0.46, 0.38);
+      vec2 f4 = vec2(aspect * 0.45, 0.30);
+      vec2 f5 = vec2(aspect * 0.54, 0.28);
+      vec2 f6 = vec2(aspect * 0.56, 0.36);
+      float school =
+        constellStar(fp, f0, 0.005, 0.2, 0.7) +
+        constellStar(fp, f1, 0.0055, 0.8, 0.9) +
+        constellStar(fp, f2, 0.006, 1.4, 0.8) +
+        constellStar(fp, f3, 0.0045, 2.0, 1.0) +
+        constellStar(fp, f4, 0.005, 2.6, 0.85) +
+        constellStar(fp, f5, 0.0055, 3.2, 0.75) +
+        constellStar(fp, f6, 0.0065, 3.8, 0.95);
+      float schoolLines =
+        constellLine(fp, f0, f1) + constellLine(fp, f1, f2) +
+        constellLine(fp, f2, f3) + constellLine(fp, f3, f4) +
+        constellLine(fp, f4, f5) + constellLine(fp, f5, f6) +
+        constellLine(fp, f6, f3);
+      col += vec3(0.45, 0.95, 1.0) * school * 1.2 * d;
+      col += vec3(0.2, 0.5, 0.7) * schoolLines * 0.25 * d;
+
+      // Rising bubbles
+      for (int i = 0; i < 5; i++) {
+        float fi = float(i);
+        float bx = fract(hash(vec2(fi, 2.2)) + u_time * mix(0.02, 0.05, hash(vec2(fi, 1.1))));
+        float by = fract(hash(vec2(fi, 4.4)) + u_time * mix(0.08, 0.16, hash(vec2(fi, 3.3))));
+        vec2 b = vec2(bx * aspect, by);
+        float br = mix(0.004, 0.012, hash(vec2(fi, 5.5)));
+        float bubble = smoothstep(br, 0.0, length(vec2(uv.x * aspect, uv.y) - b));
+        col += vec3(0.55, 0.85, 1.0) * bubble * 0.35 * d;
+      }
+
+      // Soft leviathan silhouette drifting through the mid-depth
+      float body = exp(-pow((uv.x * aspect - (aspect * 0.62 + sin(u_time * 0.07) * 0.12)) * 1.8, 2.0) * 2.5
+                       - pow((uv.y - 0.36) * 5.5, 2.0));
+      float fin = exp(-pow((uv.x * aspect - (aspect * 0.70 + sin(u_time * 0.07) * 0.12)) * 3.0, 2.0) * 3.0
+                      - pow((uv.y - 0.30) * 8.0, 2.0));
+      col -= vec3(0.02, 0.04, 0.05) * (body * 0.85 + fin * 0.45) * d * pressure;
+
+      // Mouse glow — a dive lamp
+      vec2 p = vec2(uv.x * aspect, uv.y);
+      vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
+      col += vec3(0.4, 0.85, 1.0) * exp(-length((p - m) * vec2(1.4, 1.8)) * 4.5) * 0.22 * d;
+
       return col;
     }
 
@@ -271,20 +362,26 @@
       float aspect = u_res.x / max(u_res.y, 1.0);
       float w = clamp(u_world, 0.0, 1.0);
 
-      // Descent: pure night sky → ridge arrives later → peaks grow → sea floods, peaks sink back
-      // First biome must be sky-only — no ridge silhouette / bottom soil stealing the frame
-      float landAmt = smoothstep(0.30, 0.52, w);
-      float auroraAmt = 1.0 - smoothstep(0.28, 0.58, w);
-      float dawnAmt = smoothstep(0.30, 0.55, w);
-      float windAmt = smoothstep(0.32, 0.50, w) * (1.0 - smoothstep(0.62, 0.88, w));
-      float waterAmt = smoothstep(0.5, 0.96, w);
+      // Descent: pure sky → pure ridge → ocean surface → dive (waves fold) → abyss
+      // Each biome keeps a clean frame before the next peeks in
+      float landAmt = smoothstep(0.28, 0.46, w);
+      float auroraAmt = 1.0 - smoothstep(0.26, 0.52, w);
+      float dawnAmt = smoothstep(0.28, 0.50, w);
+      float windAmt = smoothstep(0.30, 0.48, w) * (1.0 - smoothstep(0.56, 0.70, w));
+      // Ocean opens only after ridge owns the frame
+      float waterAmt = smoothstep(0.58, 0.74, w);
+      // Dive after surface has fully opened — reverse of the unfold
+      float diveAmt = smoothstep(0.76, 0.92, w);
+      float abyssAmt = smoothstep(0.82, 1.0, w);
+      float surfaceAmt = clamp(waterAmt * (1.0 - diveAmt), 0.0, 1.0);
       // Pull ranges back as soon as the sea starts — avoids a dark slab sitting on the water
-      float pullBack = max(smoothstep(0.48, 0.98, w), smoothstep(0.5, 0.78, waterAmt));
+      float pullBack = max(smoothstep(0.56, 0.82, w), smoothstep(0.5, 0.78, waterAmt));
 
-      // Horizon sits off-screen in pure sky, then climbs in only with the ridge biome
-      float landGate = smoothstep(0.28, 0.48, w);
+      // Horizon off-screen in pure sky; ridge band; then sea lifts the waterline; dive pushes it off the top
+      float landGate = smoothstep(0.26, 0.44, w);
       float horizon = mix(-0.06, 0.16, landGate);
-      horizon = mix(horizon, 0.5, waterAmt);
+      horizon = mix(horizon, 0.52, waterAmt);
+      horizon = mix(horizon, 1.18, diveAmt); // surface exits upward while diving
       float horizonHint = landGate;
 
       // --- Sky ---
@@ -395,18 +492,30 @@
       float windZone = smoothstep(crestApprox, crestApprox + 0.1, uv.y);
       col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * windZone * windAmt * 0.16;
 
-      // --- Sea replaces ground below horizon; peaks stay above and shrink via pullBack ---
-      if (waterAmt > 0.01 && uv.y < horizon + 0.03) {
-        vec3 water = oceanWater(uv, aspect, max(horizon, 0.05));
-        float cover = smoothstep(0.01, 0.48, waterAmt);
-        float shore = smoothstep(horizon + 0.03, horizon - 0.1, uv.y);
-        col = mix(col, water, cover * shore);
-        // Soft sea mist on the seam so the ridge settles behind haze, not a hard cut
-        float mist = exp(-abs(uv.y - horizon) * 12.0) * waterAmt;
-        col = mix(col, vec3(0.45, 0.58, 0.64), mist * 0.45);
+      // --- Sea surface (waves unfold with waterAmt, fold again with diveAmt) ---
+      if (waterAmt > 0.01) {
+        float waterLine = max(mix(0.16, 0.52, waterAmt) * (1.0 - diveAmt * 0.15) + diveAmt * 1.18, 0.05);
+        // While diving, still paint water under the rising line until abyss takes over
+        if (uv.y < waterLine + 0.04 || diveAmt > 0.2) {
+          vec3 water = oceanWater(uv, aspect, waterLine, surfaceAmt);
+          float cover = smoothstep(0.01, 0.45, waterAmt);
+          float shore = diveAmt > 0.35 ? 1.0 : smoothstep(waterLine + 0.03, waterLine - 0.12, uv.y);
+          col = mix(col, water, cover * shore * (1.0 - abyssAmt * 0.85));
+          float mist = exp(-abs(uv.y - waterLine) * 12.0) * surfaceAmt;
+          col = mix(col, vec3(0.45, 0.58, 0.64), mist * 0.45);
+        }
+      }
+
+      // --- Abyss: full-frame underwater after the surface folds away ---
+      if (abyssAmt > 0.01) {
+        vec3 deep = paintAbyss(uv, aspect, abyssAmt);
+        float plunge = smoothstep(0.05, 0.75, abyssAmt);
+        col = mix(col, deep, plunge);
       }
 
       float vig = smoothstep(1.4, 0.2, length(uv - 0.5));
+      // Deeper vignette in the abyss — pressure at the edges
+      vig = mix(vig, smoothstep(1.55, 0.15, length(uv - 0.5)), abyssAmt);
       col *= 0.78 + 0.22 * vig;
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
@@ -503,10 +612,12 @@
   }
 
   function worldName(w) {
-    if (w < 0.32) return { id: "sky", label: "слой · небо" };
-    if (w < 0.52) return { id: "ridge", label: "небо + горы" };
-    if (w < 0.72) return { id: "ridge", label: "слой · горы" };
-    return { id: "sea", label: "слой · океан" };
+    if (w < 0.28) return { id: "sky", label: "слой · небо" };
+    if (w < 0.46) return { id: "ridge", label: "небо + горы" };
+    if (w < 0.58) return { id: "ridge", label: "слой · горы" };
+    if (w < 0.76) return { id: "sea", label: "слой · океан" };
+    if (w < 0.88) return { id: "depth", label: "океан → бездна" };
+    return { id: "depth", label: "слой · бездна" };
   }
 
   function updateWorldUI(w) {
@@ -526,6 +637,7 @@
     mouse.x += (mouse.tx - mouse.x) * 0.05;
     mouse.y += (mouse.ty - mouse.y) * 0.05;
     worldSmooth += (world - worldSmooth) * 0.06;
+    morphSound(worldSmooth);
 
     if (sky) {
       const { gl, program, aPos, uniforms, buffer } = sky;
@@ -581,17 +693,24 @@
   function updateScroll() {
     const ridgeEl = document.getElementById("ridge");
     const seaEl = document.getElementById("sea");
+    const depthEl = document.getElementById("depth");
     const y = window.scrollY + window.innerHeight * 0.4;
     const ridgeTop = ridgeEl ? ridgeEl.offsetTop : window.innerHeight;
     const seaTop = seaEl ? seaEl.offsetTop : ridgeTop * 2;
+    const depthTop = depthEl ? depthEl.offsetTop : seaTop + window.innerHeight;
     const max = document.documentElement.scrollHeight - window.innerHeight;
 
-    // Hold pure night sky for the first viewport — no ridge peeking in yet
+    // Hold each biome's own frame before the next arrives
     const skyHold = window.innerHeight * 0.72;
+    const ridgeHold = ridgeTop + window.innerHeight * 0.45;
+    const seaHold = seaTop + window.innerHeight * 0.55;
     if (y < skyHold) world = 0;
     else if (y < ridgeTop) world = remap(y, skyHold, ridgeTop, 0, 0.34);
-    else if (y < seaTop) world = remap(y, ridgeTop, seaTop, 0.34, 0.62);
-    else world = remap(y, seaTop, max + window.innerHeight * 0.4, 0.62, 1);
+    else if (y < ridgeHold) world = remap(y, ridgeTop, ridgeHold, 0.34, 0.56); // pure ridge
+    else if (y < seaTop) world = remap(y, ridgeHold, seaTop, 0.56, 0.62); // approach shore
+    else if (y < seaHold) world = remap(y, seaTop, seaHold, 0.62, 0.76); // ocean surface
+    else if (y < depthTop) world = remap(y, seaHold, depthTop, 0.76, 0.86); // start dive
+    else world = remap(y, depthTop, max + window.innerHeight * 0.4, 0.86, 1);
 
     progress.style.width = `${(max > 0 ? window.scrollY / max : 0) * 100}%`;
     updateWorldUI(worldSmooth > 0.01 ? worldSmooth : world);
@@ -706,6 +825,8 @@
     rail.addEventListener("pointercancel", stop);
   }
 
+  let audioVoice = null;
+
   function ensureAudio() {
     if (audioCtx) return;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -727,7 +848,7 @@
       filter.connect(gain);
       gain.connect(masterGain);
       osc.start();
-      return { filter };
+      return { osc, gain, filter };
     });
 
     const lfo = audioCtx.createOscillator();
@@ -737,6 +858,37 @@
     lfo.connect(lfoGain);
     oscillators.forEach(({ filter }) => lfoGain.connect(filter.frequency));
     lfo.start();
+
+    audioVoice = { oscillators, lfo, lfoGain };
+  }
+
+  function morphSound(w) {
+    if (!audioCtx || !audioVoice || !soundOn) return;
+    const now = audioCtx.currentTime;
+    const sky = w < 0.3 ? 1 : w < 0.45 ? 1 - (w - 0.3) / 0.15 : 0;
+    const ridge = w < 0.3 ? 0 : w < 0.45 ? (w - 0.3) / 0.15 : w < 0.58 ? 1 : w < 0.7 ? 1 - (w - 0.58) / 0.12 : 0;
+    const sea = w < 0.58 ? 0 : w < 0.7 ? (w - 0.58) / 0.12 : w < 0.78 ? 1 : w < 0.9 ? 1 - (w - 0.78) / 0.12 : 0;
+    const depth = w < 0.78 ? 0 : w < 0.9 ? (w - 0.78) / 0.12 : 1;
+
+    const base = [
+      98 * sky + 82 * ridge + 55 * sea + 36 * depth,
+      146.8 * sky + 123 * ridge + 82 * sea + 49 * depth,
+      196 * sky + 164 * ridge + 110 * sea + 73 * depth,
+      246.9 * sky + 196 * ridge + 147 * sea + 98 * depth,
+    ];
+    const cutoff = 1400 * sky + 700 * ridge + 420 * sea + 180 * depth;
+    const lfoRate = 0.07 * sky + 0.12 * ridge + 0.04 * sea + 0.025 * depth;
+    const lfoDepth = 55 * sky + 90 * ridge + 30 * sea + 12 * depth;
+
+    audioVoice.oscillators.forEach((v, i) => {
+      v.osc.frequency.setTargetAtTime(base[i], now, 0.35);
+      v.filter.frequency.setTargetAtTime(cutoff, now, 0.4);
+      const g = (0.03 - i * 0.004) * (0.85 + 0.35 * depth);
+      v.gain.gain.setTargetAtTime(g, now, 0.4);
+      v.osc.type = depth > 0.55 ? "sine" : i % 2 === 0 ? "sine" : "triangle";
+    });
+    audioVoice.lfo.frequency.setTargetAtTime(lfoRate, now, 0.5);
+    audioVoice.lfoGain.gain.setTargetAtTime(lfoDepth, now, 0.5);
   }
 
   async function toggleSound() {

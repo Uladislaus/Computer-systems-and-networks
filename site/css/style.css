@@ -30,6 +30,15 @@ body[data-world="sea"] {
   --line: rgba(231, 246, 255, 0.14);
 }
 
+body[data-world="depth"] {
+  --ink: #d8fff4;
+  --mute: #6f9e9a;
+  --ice: #7dffd2;
+  --accent: #49f0c0;
+  --aurora: #49f0c0;
+  --line: rgba(216, 255, 244, 0.12);
+}
+
 *,
 *::before,
 *::after {
