@@ -806,6 +806,12 @@
     }
   }
 
+  // If Chromium pagehide/freeze left the loop stopped while the tab is visible, kick it.
+  function ensureAnimating() {
+    if (document.visibilityState === "hidden") return;
+    if (!pageVisible || !rafId) setPageVisible(true);
+  }
+
   document.addEventListener("visibilitychange", () => {
     setPageVisible(document.visibilityState !== "hidden");
   });
@@ -814,6 +820,9 @@
   window.addEventListener("pageshow", () => setPageVisible(document.visibilityState !== "hidden"));
   window.addEventListener("freeze", () => setPageVisible(false));
   window.addEventListener("resume", () => setPageVisible(document.visibilityState !== "hidden"));
+  window.addEventListener("focus", ensureAnimating);
+  window.addEventListener("pointerdown", ensureAnimating, { passive: true });
+  window.addEventListener("keydown", ensureAnimating);
 
   function remap(v, a, b, c, d) {
     const t = (v - a) / Math.max(b - a, 0.0001);
@@ -821,6 +830,7 @@
   }
 
   function updateScroll() {
+    ensureAnimating();
     const ridgeEl = document.getElementById("ridge");
     const seaEl = document.getElementById("sea");
     const depthEl = document.getElementById("depth");
