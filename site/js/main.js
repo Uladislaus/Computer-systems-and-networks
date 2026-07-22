@@ -38,7 +38,6 @@
     uniform float u_time;
     uniform vec2 u_mouse;
     uniform float u_world;
-    uniform float u_quality; // 1 = full fidelity, lower = cheaper LOD
 
     float hash(vec2 p) {
       p = fract(p * vec2(123.34, 456.21));
@@ -61,8 +60,7 @@
       float v = 0.0;
       float a = 0.5;
       mat2 m = mat2(0.8, -0.6, 0.6, 0.8);
-      // 3 octaves — enough for aurora/terrain, half the old cost
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 5; i++) {
         v += a * noise(p);
         p = m * p * 2.02;
         a *= 0.5;
@@ -79,11 +77,7 @@
       float core = exp(-pow(d / max(thick * 0.35, 0.001), 2.0) * 4.0);
       float mid = exp(-pow(d / max(thick, 0.001), 2.0) * 2.2) * 0.55;
       float edge = exp(-pow(d / max(thick * 1.7, 0.001), 2.0)) * 0.22;
-      // Rays: full fbm only on high quality; cheap noise when idle/LOD
-      float rayN = u_quality > 0.55
-        ? fbm(vec2(uv.x * 22.0 - u_time * speed * 2.0 + seed, uv.y * 1.2 + seed))
-        : noise(vec2(uv.x * 18.0 - u_time * speed * 1.6 + seed, seed));
-      float rays = smoothstep(0.4, 0.78, rayN);
+      float rays = smoothstep(0.4, 0.78, fbm(vec2(uv.x * 22.0 - u_time * speed * 2.0 + seed, uv.y * 1.2 + seed)));
       float drop = smoothstep(wavy + thick * 2.5, wavy - 0.02, uv.y) *
                    smoothstep(wavy - 0.55, wavy - 0.05, uv.y);
       return (core * 1.45 + mid + edge) * (0.4 + rays * 1.35) * (0.3 + drop * 1.05);
@@ -109,15 +103,12 @@
       float a1 = auroraBand(uv, 0.42 + yShift, 0.032, 0.06, 1.2);
       float a2 = auroraBand(uv, 0.52 + yShift, 0.026, 0.10, 3.7);
       float a3 = auroraBand(uv, 0.34 + yShift, 0.036, 0.045, 6.1);
+      float a4 = auroraBand(uv, 0.58 + yShift, 0.022, 0.13, 8.9);
       vec3 aurora =
         vec3(0.2, 1.0, 0.55) * a1 * 1.25 +
         vec3(0.15, 0.85, 1.0) * a2 * 1.05 +
-        vec3(0.55, 1.0, 0.65) * a3 * 0.85;
-      // 4th curtain only at full quality
-      if (u_quality > 0.7) {
-        float a4 = auroraBand(uv, 0.58 + yShift, 0.022, 0.13, 8.9);
-        aurora += vec3(0.85, 0.35, 1.0) * a4 * 0.65;
-      }
+        vec3(0.55, 1.0, 0.65) * a3 * 0.8 +
+        vec3(0.85, 0.35, 1.0) * a4 * 0.65;
       vec2 p = vec2(uv.x * aspect, uv.y);
       vec2 m = vec2(u_mouse.x * aspect, u_mouse.y);
       aurora += vec3(0.25, 1.0, 0.75) * exp(-length((p - m) * vec2(1.6, 2.2)) * 5.0) * 0.2;
@@ -133,19 +124,17 @@
     // Layered ridge line inspired by real ranges: varied peaks, organic rumple
     float ridgeProfile(float x, float seed, float alpine) {
       float h = 0.0;
-      // Broad shoulders (always — silhouette)
+      // Broad shoulders
       h += peakLobe(x, 0.08 + seed * 0.03, 0.22, 0.45, mix(1.6, 2.2, alpine));
       h += peakLobe(x, 0.32 + seed * 0.02, 0.16, 0.7, mix(1.5, 2.6, alpine));
       h += peakLobe(x, 0.52 + seed * 0.04, 0.2, 0.95, mix(1.45, 2.8, alpine));
       h += peakLobe(x, 0.72 + seed * 0.02, 0.14, 0.62, mix(1.55, 2.5, alpine));
       h += peakLobe(x, 0.92 + seed * 0.03, 0.18, 0.78, mix(1.5, 2.4, alpine));
       h += peakLobe(x, 1.12 + seed * 0.01, 0.2, 0.5, mix(1.6, 2.2, alpine));
-      // Secondary crags + rumple only at high quality
-      if (u_quality > 0.55) {
-        h += peakLobe(x, 0.42 + seed, 0.07, 0.28, mix(1.8, 3.2, alpine));
-        h += peakLobe(x, 0.63 + seed * 0.5, 0.06, 0.22, mix(1.8, 3.0, alpine));
-        h += noise(vec2(x * 2.4 + seed, seed * 3.0)) * mix(0.08, 0.14, alpine);
-      }
+      // Secondary crags
+      h += peakLobe(x, 0.42 + seed, 0.07, 0.28, mix(1.8, 3.2, alpine));
+      h += peakLobe(x, 0.63 + seed * 0.5, 0.06, 0.22, mix(1.8, 3.0, alpine));
+      h += fbm(vec2(x * 2.4 + seed, seed * 3.0)) * mix(0.1, 0.16, alpine);
       return clamp(h, 0.0, 1.25);
     }
 
@@ -153,9 +142,6 @@
     // Far = pale / snow, mid = blue-grey, near = dark. Valley fog between layers.
     vec3 paintMountains(vec2 uv, float aspect, float rise, vec3 skyCol, float horizon, float pullBack, float dawn) {
       if (rise < 0.001) return skyCol;
-      // Pixels well above any crest never need ridge math
-      if (uv.y > horizon + 0.34 * rise + 0.02) return skyCol;
-
       vec3 col = skyCol;
       float mousePar = u_mouse.x - 0.5;
 
@@ -164,12 +150,6 @@
       float midAmt = approach * (1.0 - smoothstep(0.25, 0.75, pullBack));
       float farAmt = rise * mix(1.0, 0.4, pullBack);
       float far2Amt = rise * mix(0.85, 0.3, pullBack);
-      // Idle LOD: keep far+mid silhouette, drop near / far2 detail layers
-      bool hi = u_quality > 0.55;
-      if (!hi) {
-        nearAmt = 0.0;
-        far2Amt *= 0.55;
-      }
 
       float xBase = uv.x + mousePar * 0.02;
       float xFar2 = xBase * aspect * 0.7 - 0.1;
@@ -178,10 +158,10 @@
       float xNear = xBase * aspect * 1.3 + 0.95;
 
       // Crest stays in lower half — sky/aurora keep the top (refs ~25–35% sky)
-      float hFar2 = (far2Amt > 0.001) ? (0.04 + ridgeProfile(xFar2, 0.05, 0.7) * 0.2) * far2Amt : 0.0;
-      float hFar = (farAmt > 0.001) ? (0.035 + ridgeProfile(xFar, 0.2, 0.55) * 0.18) * farAmt : 0.0;
-      float hMid = (midAmt > 0.001) ? (0.025 + ridgeProfile(xMid, 1.4, 0.35) * 0.15) * midAmt : 0.0;
-      float hNear = (nearAmt > 0.001) ? (0.015 + ridgeProfile(xNear, 2.8, 0.2) * 0.14) * nearAmt : 0.0;
+      float hFar2 = (0.04 + ridgeProfile(xFar2, 0.05, 0.7) * 0.2) * far2Amt;
+      float hFar = (0.035 + ridgeProfile(xFar, 0.2, 0.55) * 0.18) * farAmt;
+      float hMid = (0.025 + ridgeProfile(xMid, 1.4, 0.35) * 0.15) * midAmt;
+      float hNear = (0.015 + ridgeProfile(xNear, 2.8, 0.2) * 0.14) * nearAmt;
 
       float yFar2 = horizon + hFar2;
       float yFar = horizon + hFar;
@@ -260,17 +240,14 @@
 
       float waves = 0.0;
       float foam = 0.0;
-      // 5 rows at full quality; 3 when idle — silhouette of sea stays
-      float rowCount = u_quality > 0.55 ? 5.0 : 3.0;
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 12; i++) {
         float fi = float(i);
-        if (fi >= rowCount) continue;
-        float t = (fi + 1.0) / rowCount;
+        float t = (fi + 1.0) / 12.0;
         float rowDepth = pow(t, 1.55);
         float row = waterLine - rowDepth * waterLine * 0.98;
-        float dens = mix(26.0, 3.8, rowDepth);
+        float dens = mix(28.0, 3.5, rowDepth);
         float amp = mix(0.004, 0.028, rowDepth);
-        float speed = mix(1.35, 0.55, rowDepth);
+        float speed = mix(1.4, 0.55, rowDepth);
         float phase = uv.x * aspect * dens + u_time * speed + u_mouse.x * 1.8 + fi * 1.7;
         float y = row + sin(phase) * amp + sin(phase * 2.1 + fi) * amp * 0.35;
         float line = exp(-abs(uv.y - y) * mix(70.0, 18.0, rowDepth));
@@ -279,14 +256,12 @@
         foam += line * crest * mix(0.12, 0.85, rowDepth);
       }
 
-      if (u_quality > 0.5) {
-        float foamPatch = fbm(vec2(uv.x * aspect * 3.5 - u_time * 0.15, uv.y * 6.0));
-        foam += smoothstep(0.55, 0.8, foamPatch) * persp * 0.35;
-        float chop = noise(vec2(uv.x * aspect * mix(14.0, 4.0, persp) - u_time * 0.25, uv.y * mix(30.0, 8.0, persp)));
-        col += vec3(0.04, 0.1, 0.12) * chop * persp * 0.35;
-      }
+      float foamPatch = fbm(vec2(uv.x * aspect * 3.5 - u_time * 0.15, uv.y * 6.0));
+      foam += smoothstep(0.55, 0.8, foamPatch) * persp * 0.35;
 
+      float chop = fbm(vec2(uv.x * aspect * mix(14.0, 4.0, persp) - u_time * 0.25, uv.y * mix(30.0, 8.0, persp)));
       col += vec3(0.12, 0.45, 0.55) * waves;
+      col += vec3(0.04, 0.1, 0.12) * chop * persp * 0.35;
       col = mix(col, vec3(0.88, 0.95, 0.98), clamp(foam, 0.0, 0.85));
       return col;
     }
@@ -322,32 +297,31 @@
       float dusk = exp(-abs(uv.y - horizon) * 11.0) * max(horizonHint, landAmt);
       col = mix(col, mix(vec3(0.1, 0.1, 0.12), vec3(0.35, 0.28, 0.22), dawnAmt), dusk * 0.3);
 
-      // Point stars — skip below crest / in heavy dawn (hash cost is per-pixel)
-      float starGate = (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
-      if (starGate > 0.01) {
-        vec2 starGrid = uv * vec2(u_res.x / 3.0, u_res.y / 3.0);
-        vec2 starCell = floor(starGrid);
-        vec2 starLocal = fract(starGrid) - 0.5;
-        float starOn = step(0.992, hash(starCell));
-        float sizeSeed = hash(starCell + vec2(2.3, 5.8));
-        float brightSeed = hash(starCell + vec2(4.6, 1.1));
-        float tintSeed = hash(starCell + vec2(8.4, 3.3));
-        float starRadius = mix(0.028, 0.07, sizeSeed);
-        float starDot = starOn * smoothstep(starRadius, 0.0, length(starLocal));
-        float twSeed = hash(starCell + vec2(3.1, 7.7));
-        float twPhase = hash(starCell + vec2(9.2, 1.4)) * 6.2831853;
-        float twSpeed = 0.25 + twSeed * 1.1;
-        float twinkle = 0.55 + 0.45 * sin(u_time * twSpeed + twPhase);
-        twinkle *= 0.75 + 0.25 * sin(u_time * (twSpeed * 0.41 + 0.12) + twPhase * 1.7);
-        vec3 starCol = mix(vec3(0.82, 0.9, 1.0), vec3(1.0, 0.96, 0.88), smoothstep(0.35, 0.9, tintSeed));
-        starCol = mix(starCol, vec3(0.75, 0.95, 1.0), step(0.82, tintSeed) * 0.55);
-        float starBright = mix(0.35, 1.15, brightSeed);
-        col += starCol * starDot * twinkle * starBright * starGate;
-      }
+      // Point stars: unique size, brightness, tint, and twinkle per cell
+      vec2 starGrid = uv * vec2(u_res.x / 3.0, u_res.y / 3.0);
+      vec2 starCell = floor(starGrid);
+      vec2 starLocal = fract(starGrid) - 0.5;
+      float starOn = step(0.992, hash(starCell));
+      float sizeSeed = hash(starCell + vec2(2.3, 5.8));
+      float brightSeed = hash(starCell + vec2(4.6, 1.1));
+      float tintSeed = hash(starCell + vec2(8.4, 3.3));
+      float starRadius = mix(0.028, 0.07, sizeSeed); // tiny … a bit larger
+      float starDot = starOn * smoothstep(starRadius, 0.0, length(starLocal));
+      starDot *= (1.0 - dawnAmt) * smoothstep(crestApprox + 0.06, 0.7, uv.y);
+      float twSeed = hash(starCell + vec2(3.1, 7.7));
+      float twPhase = hash(starCell + vec2(9.2, 1.4)) * 6.2831853;
+      float twSpeed = 0.25 + twSeed * 1.1;
+      float twinkle = 0.55 + 0.45 * sin(u_time * twSpeed + twPhase);
+      twinkle *= 0.75 + 0.25 * sin(u_time * (twSpeed * 0.41 + 0.12) + twPhase * 1.7);
+      // Cool white → soft ice → faint warm tip
+      vec3 starCol = mix(vec3(0.82, 0.9, 1.0), vec3(1.0, 0.96, 0.88), smoothstep(0.35, 0.9, tintSeed));
+      starCol = mix(starCol, vec3(0.75, 0.95, 1.0), step(0.82, tintSeed) * 0.55);
+      float starBright = mix(0.35, 1.15, brightSeed);
+      col += starCol * starDot * twinkle * starBright;
 
       // Constellations: Big Dipper (Ursa Major) + Scorpius — brighter named stars
       float skyStars = (1.0 - dawnAmt) * smoothstep(crestApprox + 0.1, 0.75, uv.y);
-      if (skyStars > 0.01 && u_quality > 0.35) {
+      if (skyStars > 0.01) {
         vec2 p = vec2(uv.x * aspect, uv.y);
 
         // --- Большая Медведица (ковш): handle → bowl ---
@@ -366,15 +340,13 @@
           constellStar(p, um4, 0.0050, 2.8, 1.2) +
           constellStar(p, um5, 0.0052, 3.4, 0.9) +
           constellStar(p, um6, 0.0060, 4.0, 1.5);
+        float umLines =
+          constellLine(p, um0, um1) + constellLine(p, um1, um2) +
+          constellLine(p, um2, um3) + constellLine(p, um3, um4) +
+          constellLine(p, um4, um5) + constellLine(p, um5, um6) +
+          constellLine(p, um6, um3);
         col += vec3(0.85, 0.92, 1.0) * um * 1.35 * skyStars;
-        if (u_quality > 0.5) {
-          float umLines =
-            constellLine(p, um0, um1) + constellLine(p, um1, um2) +
-            constellLine(p, um2, um3) + constellLine(p, um3, um4) +
-            constellLine(p, um4, um5) + constellLine(p, um5, um6) +
-            constellLine(p, um6, um3);
-          col += vec3(0.55, 0.7, 0.9) * umLines * 0.22 * skyStars;
-        }
+        col += vec3(0.55, 0.7, 0.9) * umLines * 0.22 * skyStars;
 
         // --- Скорпион: curve + Antares (warmer/brighter) ---
         vec2 sc0 = vec2(aspect * 0.72, 0.78);
@@ -394,22 +366,20 @@
           constellStar(p, sc5, 0.0038, 3.6, 0.95) +
           constellStar(p, sc6, 0.0036, 4.2, 1.15) +
           constellStar(p, sc7, 0.0034, 4.8, 1.05);
+        float scLines =
+          constellLine(p, sc0, sc1) + constellLine(p, sc1, sc2) +
+          constellLine(p, sc2, sc3) + constellLine(p, sc3, sc4) +
+          constellLine(p, sc4, sc5) + constellLine(p, sc5, sc6) +
+          constellLine(p, sc6, sc7);
         col += vec3(1.0, 0.88, 0.82) * constellStar(p, sc2, 0.0075, 1.8, 0.7) * 0.55 * skyStars;
         col += vec3(0.9, 0.93, 1.0) * sc * 1.15 * skyStars;
-        if (u_quality > 0.5) {
-          float scLines =
-            constellLine(p, sc0, sc1) + constellLine(p, sc1, sc2) +
-            constellLine(p, sc2, sc3) + constellLine(p, sc3, sc4) +
-            constellLine(p, sc4, sc5) + constellLine(p, sc5, sc6) +
-            constellLine(p, sc6, sc7);
-          col += vec3(0.6, 0.55, 0.7) * scLines * 0.18 * skyStars;
-        }
+        col += vec3(0.6, 0.55, 0.7) * scLines * 0.18 * skyStars;
       }
 
-      // Aurora — skip entire sample when mask is ~0 (big win in mountain/sea zones)
+      // Aurora reaches down to just above the ridge — gap ~half of the old black strip
       float auroraShift = -landAmt * 0.04 - pullBack * 0.03;
       float auroraMask = smoothstep(crestApprox + 0.03, crestApprox + 0.12, uv.y) * auroraAmt;
-      if (auroraMask > 0.008) {
+      if (auroraMask > 0.001) {
         col += sampleAurora(uv, aspect, auroraShift) * auroraMask;
       }
 
@@ -419,8 +389,8 @@
         col = mix(col, land, smoothstep(0.0, 0.2, rise));
       }
 
-      // Wind only above the crest when active
-      if (windAmt > 0.01) {
+      // Wind only above the crest (skip when not in wind biome — same pixels)
+      if (windAmt > 0.001) {
         float wind = fbm(vec2(uv.x * 2.2 - u_time * 0.45 + u_mouse.x * 0.8, uv.y * 22.0));
         float windZone = smoothstep(crestApprox, crestApprox + 0.1, uv.y);
         col += vec3(1.0, 0.98, 0.94) * smoothstep(0.62, 0.85, wind) * windZone * windAmt * 0.16;
@@ -461,7 +431,7 @@
       alpha: false,
       premultipliedAlpha: false,
       preserveDrawingBuffer: false,
-      powerPreference: "low-power",
+      powerPreference: "default",
       failIfMajorPerformanceCaveat: false,
     });
     if (!gl) return null;
@@ -499,48 +469,33 @@
         time: gl.getUniformLocation(program, "u_time"),
         mouse: gl.getUniformLocation(program, "u_mouse"),
         world: gl.getUniformLocation(program, "u_world"),
-        quality: gl.getUniformLocation(program, "u_quality"),
       },
       buffer,
     };
   }
 
-  // Direct WebGL on the visible canvas (star-cell bug was the white square, not the canvas type).
-  // Avoids the expensive WebGL→2D blit every frame while keeping full visual fidelity when active.
+  // Full visual fidelity on the visible canvas. White square was a star-cell bug, not WebGL.
+  // Pro perf model: run at full quality while the tab is visible; hard-stop when hidden
+  // (background / minimized tabs must not keep burning the GPU — that was the 7-tab heat).
   const sky = initWebGL(canvas);
   const modeBadge = document.getElementById("render-mode");
   if (modeBadge) modeBadge.textContent = sky ? "WebGL мир" : "fallback";
 
-  // Adaptive perf: full quality while interacting, cooler idle, full stop when tab hidden
-  const ACTIVE_FPS = 28;
-  const IDLE_FPS = 12;
-  const IDLE_AFTER_MS = 1400;
-  const ACTIVE_SCALE = 0.92; // barely softer than native, ~15% fewer pixels
-  const IDLE_SCALE = 0.72;
-  let lastFrameAt = 0;
-  let lastInputAt = performance.now();
   let rafId = 0;
   let ringRafId = 0;
   let pageVisible = document.visibilityState !== "hidden";
-  let renderScale = ACTIVE_SCALE;
-  let appliedScale = -1;
   let startRingLoop = () => {};
   let stopRingLoop = () => {};
-
-  function markInput() {
-    lastInputAt = performance.now();
-  }
 
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    const w = Math.max(1, Math.floor(width * renderScale));
-    const h = Math.max(1, Math.floor(height * renderScale));
+    const w = Math.max(1, width | 0);
+    const h = Math.max(1, height | 0);
     canvas.width = w;
     canvas.height = h;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    appliedScale = renderScale;
     if (sky) {
       sky.gl.viewport(0, 0, w, h);
       sky.gl.clearColor(0.024, 0.063, 0.094, 1.0);
@@ -568,22 +523,10 @@
     rafId = requestAnimationFrame(frame);
     if (!pageVisible) return;
 
-    const idle = now - lastInputAt > IDLE_AFTER_MS;
-    const targetFps = idle ? IDLE_FPS : ACTIVE_FPS;
-    if (now - lastFrameAt < 1000 / targetFps - 0.5) return;
-    lastFrameAt = now;
-
-    // Full-ish res while interacting; softer when idle
-    const wantScale = idle ? IDLE_SCALE : ACTIVE_SCALE;
-    if (Math.abs(wantScale - appliedScale) > 0.04) {
-      renderScale = wantScale;
-      resize();
-    }
-
     const t = now * 0.001;
-    mouse.x += (mouse.tx - mouse.x) * 0.05;
-    mouse.y += (mouse.ty - mouse.y) * 0.05;
-    worldSmooth += (world - worldSmooth) * 0.06;
+    mouse.x += (mouse.tx - mouse.x) * 0.08;
+    mouse.y += (mouse.ty - mouse.y) * 0.08;
+    worldSmooth += (world - worldSmooth) * 0.08;
 
     if (sky) {
       const { gl, program, aPos, uniforms, buffer } = sky;
@@ -598,13 +541,12 @@
       gl.uniform1f(uniforms.time, t);
       gl.uniform2f(uniforms.mouse, mouse.x, 1.0 - mouse.y);
       gl.uniform1f(uniforms.world, worldSmooth);
-      gl.uniform1f(uniforms.quality, idle ? 0.4 : 1.0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
   }
 
   function startLoop() {
-    if (!rafId) rafId = requestAnimationFrame(frame);
+    if (!rafId && pageVisible) rafId = requestAnimationFrame(frame);
   }
 
   function stopLoop() {
@@ -612,23 +554,25 @@
     rafId = 0;
   }
 
-  document.addEventListener("visibilitychange", () => {
-    pageVisible = document.visibilityState !== "hidden";
+  function setPageVisible(visible) {
+    pageVisible = visible;
     if (pageVisible) {
-      markInput();
       startLoop();
       startRingLoop();
     } else {
       stopLoop();
       stopRingLoop();
     }
-  });
+  }
 
-  window.addEventListener("pointermove", markInput, { passive: true });
-  window.addEventListener("wheel", markInput, { passive: true });
-  window.addEventListener("keydown", markInput, { passive: true });
-  window.addEventListener("touchstart", markInput, { passive: true });
-  window.addEventListener("scroll", markInput, { passive: true });
+  document.addEventListener("visibilitychange", () => {
+    setPageVisible(document.visibilityState !== "hidden");
+  });
+  // Extra coverage for minimized / bfcache cases some Chromium builds mishandle
+  window.addEventListener("pagehide", () => setPageVisible(false));
+  window.addEventListener("pageshow", () => setPageVisible(document.visibilityState !== "hidden"));
+  window.addEventListener("freeze", () => setPageVisible(false));
+  window.addEventListener("resume", () => setPageVisible(document.visibilityState !== "hidden"));
 
   function remap(v, a, b, c, d) {
     const t = (v - a) / Math.max(b - a, 0.0001);
@@ -702,17 +646,14 @@
     if (cursorRing) {
       let rx = window.innerWidth / 2;
       let ry = window.innerHeight / 2;
-      let lastRingAt = 0;
-      const tickRing = (now) => {
+      const tickRing = () => {
         ringRafId = requestAnimationFrame(tickRing);
         if (!pageVisible) return;
-        // Cap ring lag to ~30fps — no need to match display refresh
-        if (now - lastRingAt < 32) return;
-        lastRingAt = now;
         const tx = parseFloat(cursorRing.dataset.tx || rx);
         const ty = parseFloat(cursorRing.dataset.ty || ry);
-        rx += (tx - rx) * 0.22;
-        ry += (ty - ry) * 0.22;
+        // Snappy follow — intentional lag, not a 12fps/throttled trail
+        rx += (tx - rx) * 0.28;
+        ry += (ty - ry) * 0.28;
         cursorRing.style.left = `${rx}px`;
         cursorRing.style.top = `${ry}px`;
       };
