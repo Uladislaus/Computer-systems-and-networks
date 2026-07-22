@@ -277,13 +277,15 @@
       float y = uv.y;
       float x = uv.x * aspect;
 
-      // Progressive reveals through the abyss scroll
-      float showOpen = smoothstep(0.0, 0.22, s);         // murk + light only
-      float showSnow = smoothstep(0.08, 0.32, s);
-      float showKelp = smoothstep(0.28, 0.52, s);        // floating fronds
-      float showFish = smoothstep(0.4, 0.62, s);
-      float showJelly = smoothstep(0.55, 0.78, s);
-      float showVent = smoothstep(0.7, 0.95, s);         // hot bubble plume last
+      // Progressive reveals: jellies before kelp; background schools early
+      float showOpen = smoothstep(0.0, 0.2, s);
+      float showSnow = smoothstep(0.06, 0.28, s);
+      float showKrill = smoothstep(0.12, 0.36, s);      // distant warm swarm
+      float showSilver = smoothstep(0.18, 0.42, s);     // silver mid-depth school
+      float showJelly = smoothstep(0.26, 0.5, s);        // jellies before seaweed
+      float showKelp = smoothstep(0.42, 0.66, s);
+      float showFish = smoothstep(0.5, 0.72, s);         // nearer dark silhouettes
+      float showVent = smoothstep(0.7, 0.95, s);
 
       // Thick murk — colder and blacker the deeper you go
       float pressure = pow(mix(0.25, 1.0, 1.0 - y) * mix(0.55, 1.0, d), 1.15);
@@ -308,6 +310,67 @@
       }
       col += vec3(0.08, 0.28, 0.34) * shaft * 0.4 * (1.0 - pressure * 0.7) * d * showOpen;
 
+      // Distant krill — warm orange speck swarm in the background
+      if (showKrill > 0.01) {
+        float krill = 0.0;
+        for (int i = 0; i < 12; i++) {
+          float fi = float(i);
+          float trek = fi * 0.07 + u_time * 0.045;
+          float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
+          float kx = aspect * (0.08 + ping * 0.84) + sin(u_time * 0.7 + fi * 1.9) * 0.02;
+          float ky = mix(0.3, 0.72, hash(vec2(fi, 3.3))) + sin(u_time * 0.55 + fi) * 0.025;
+          float kr = mix(0.0018, 0.0045, hash(vec2(fi, 5.5)));
+          krill += smoothstep(kr, 0.0, length(vec2(x - kx, (y - ky) * 1.2)));
+        }
+        col += vec3(1.0, 0.45, 0.18) * krill * 0.55 * d * showKrill * (0.45 + 0.55 * (1.0 - pressure));
+        col += vec3(1.0, 0.7, 0.35) * krill * 0.2 * d * showKrill;
+      }
+
+      // Silver school — glinting mid-water fish behind the jellies
+      if (showSilver > 0.01) {
+        float silver = 0.0;
+        float flash = 0.0;
+        for (int i = 0; i < 10; i++) {
+          float fi = float(i);
+          float phase = u_time * 0.65 + fi * 0.55;
+          float trek = fi * 0.09 + u_time * 0.028;
+          float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
+          float fx = aspect * 0.12 + ping * aspect * 0.76 + sin(phase) * 0.03;
+          float fy = 0.42 + sin(phase * 1.2 + fi * 0.8) * 0.07 + (hash(vec2(fi, 2.2)) - 0.5) * 0.06;
+          vec2 fp = vec2((x - fx) * 4.2, (y - fy) * 9.0);
+          float body = exp(-dot(fp, fp));
+          float glint = exp(-pow((x - fx) * 14.0, 2.0) - pow((y - fy) * 22.0, 2.0)) *
+                        (0.5 + 0.5 * sin(u_time * 3.5 + fi * 2.1));
+          silver += body;
+          flash += glint;
+        }
+        col += vec3(0.55, 0.7, 0.78) * silver * 0.28 * d * showSilver;
+        col += vec3(0.85, 0.95, 1.0) * flash * 0.55 * d * showSilver;
+      }
+
+      // Jellyfish — before seaweed
+      if (showJelly > 0.01) {
+        for (int i = 0; i < 3; i++) {
+          float fi = float(i);
+          float jx = aspect * mix(0.25, 0.8, hash(vec2(fi, 1.3))) + sin(u_time * 0.22 + fi * 2.0) * 0.06;
+          float jy = mix(0.35, 0.7, hash(vec2(fi, 2.4))) + sin(u_time * 0.35 + fi) * 0.03;
+          vec2 jp = vec2(x - jx, (y - jy) * 1.35);
+          float bell = smoothstep(0.07, 0.0, length(jp * vec2(1.0, 1.35)));
+          float rim = smoothstep(0.07, 0.045, length(jp * vec2(1.0, 1.35))) - smoothstep(0.045, 0.02, length(jp * vec2(1.0, 1.35)));
+          col += vec3(0.35, 0.85, 0.9) * bell * 0.18 * d * showJelly;
+          col += vec3(0.7, 0.95, 1.0) * max(rim, 0.0) * 0.35 * d * showJelly;
+          for (int t = 0; t < 4; t++) {
+            float ft = float(t);
+            float tx = jx + (ft - 1.5) * 0.012 + sin(y * 25.0 - u_time * 1.4 + ft + fi) * 0.008;
+            float ty0 = jy - 0.02;
+            float ty1 = jy - mix(0.14, 0.22, hash(vec2(fi, ft)));
+            float along = smoothstep(ty0, ty0 - 0.01, y) * smoothstep(ty1 - 0.02, ty1, y);
+            float td = abs(x - tx);
+            col += vec3(0.45, 0.8, 0.85) * smoothstep(0.004, 0.0, td) * along * 0.22 * d * showJelly;
+          }
+        }
+      }
+
       // Floating seaweed — free ribbons drifting mid-water (not rooted to a floor)
       if (showKelp > 0.01) {
         for (int i = 0; i < 6; i++) {
@@ -329,13 +392,12 @@
         }
       }
 
-      // School of fish — elongated bodies, ping-pong across the frame (no teleport wrap)
+      // Nearer dark school — soft silhouettes in front of the silver band
       if (showFish > 0.01) {
         float school = 0.0;
         for (int i = 0; i < 8; i++) {
           float fi = float(i);
           float phase = u_time * 0.55 + fi * 0.7;
-          // triangle wave 0→1→0 so the school drifts back instead of snapping
           float trek = fi * 0.11 + u_time * 0.03;
           float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
           float fx = aspect * 0.2 + ping * aspect * 0.55 + sin(phase) * 0.04;
@@ -346,29 +408,6 @@
           school += body * 0.9 + tail * 0.35;
         }
         col = mix(col, col * 0.35 + vec3(0.04, 0.1, 0.12), clamp(school * 0.55, 0.0, 0.7) * d * showFish);
-      }
-
-      // Jellyfish
-      if (showJelly > 0.01) {
-        for (int i = 0; i < 3; i++) {
-          float fi = float(i);
-          float jx = aspect * mix(0.25, 0.8, hash(vec2(fi, 1.3))) + sin(u_time * 0.22 + fi * 2.0) * 0.06;
-          float jy = mix(0.35, 0.7, hash(vec2(fi, 2.4))) + sin(u_time * 0.35 + fi) * 0.03;
-          vec2 jp = vec2(x - jx, (y - jy) * 1.35);
-          float bell = smoothstep(0.07, 0.0, length(jp * vec2(1.0, 1.35)));
-          float rim = smoothstep(0.07, 0.045, length(jp * vec2(1.0, 1.35))) - smoothstep(0.045, 0.02, length(jp * vec2(1.0, 1.35)));
-          col += vec3(0.35, 0.85, 0.9) * bell * 0.18 * d * showJelly;
-          col += vec3(0.7, 0.95, 1.0) * max(rim, 0.0) * 0.35 * d * showJelly;
-          for (int t = 0; t < 4; t++) {
-            float ft = float(t);
-            float tx = jx + (ft - 1.5) * 0.012 + sin(y * 25.0 - u_time * 1.4 + ft + fi) * 0.008;
-            float ty0 = jy - 0.02;
-            float ty1 = jy - mix(0.14, 0.22, hash(vec2(fi, ft)));
-            float along = smoothstep(ty0, ty0 - 0.01, y) * smoothstep(ty1 - 0.02, ty1, y);
-            float td = abs(x - tx);
-            col += vec3(0.45, 0.8, 0.85) * smoothstep(0.004, 0.0, td) * along * 0.22 * d * showJelly;
-          }
-        }
       }
 
       // Thermal plume — rising hot-gas bubbles (not a campfire)
