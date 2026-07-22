@@ -293,72 +293,84 @@
       vec3 trenchInk = vec3(0.0, 0.01, 0.025);
       vec3 col = mix(shallowBlue, trenchInk, pressure);
 
-      // Moving caustics
+      // Moving caustics — keep subtle, not big glowing blotches
       float cax = x * 6.0 + u_time * 0.35 + fbm(vec2(x * 1.2, y * 2.0 + u_time * 0.1)) * 1.8;
       float cay = y * 9.0 - u_time * 0.2;
       float caust = pow(0.5 + 0.5 * sin(cax) * sin(cay * 1.3 + sin(cax * 0.7)), 3.0);
       caust *= exp(-pressure * 3.2) * smoothstep(0.0, 0.55, y) * d * showOpen;
-      col += vec3(0.12, 0.55, 0.62) * caust * 0.55;
+      col += vec3(0.1, 0.4, 0.48) * caust * 0.22;
 
-      // Soft shafts of filtered surface light
+      // Thin light shafts only — the old fat gaussians looked like random bright patches
       float shaft = 0.0;
-      for (int i = 0; i < 4; i++) {
+      for (int i = 0; i < 3; i++) {
         float fi = float(i);
-        float sx = aspect * mix(0.15, 0.85, (fi + 0.5) / 4.0) + sin(u_time * 0.15 + fi) * 0.04;
-        float ang = (x - sx) * 2.2 + (1.0 - y) * 0.35;
-        shaft += exp(-ang * ang * mix(18.0, 40.0, fi / 3.0)) * exp(-(1.0 - y) * 1.8);
+        float sx = aspect * mix(0.22, 0.78, (fi + 0.5) / 3.0) + sin(u_time * 0.12 + fi) * 0.03;
+        float ang = (x - sx) * 4.5 + (1.0 - y) * 0.25;
+        shaft += exp(-ang * ang * 55.0) * exp(-(1.0 - y) * 2.2);
       }
-      col += vec3(0.08, 0.28, 0.34) * shaft * 0.4 * (1.0 - pressure * 0.7) * d * showOpen;
+      col += vec3(0.06, 0.2, 0.26) * shaft * 0.18 * (1.0 - pressure * 0.7) * d * showOpen;
 
-      // Distant krill — warm orange speck swarm in the background
+      // Krill cloud — dense warm orange speck pack (readable as a swarm)
       if (showKrill > 0.01) {
+        float trek = u_time * 0.04;
+        float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
+        float packX = aspect * (0.18 + ping * 0.55);
+        float packY = 0.52 + sin(u_time * 0.35) * 0.04;
         float krill = 0.0;
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < 16; i++) {
           float fi = float(i);
-          float trek = fi * 0.07 + u_time * 0.045;
-          float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
-          float kx = aspect * (0.08 + ping * 0.84) + sin(u_time * 0.7 + fi * 1.9) * 0.02;
-          float ky = mix(0.3, 0.72, hash(vec2(fi, 3.3))) + sin(u_time * 0.55 + fi) * 0.025;
-          float kr = mix(0.0018, 0.0045, hash(vec2(fi, 5.5)));
-          krill += smoothstep(kr, 0.0, length(vec2(x - kx, (y - ky) * 1.2)));
+          float ox = (hash(vec2(fi, 1.1)) - 0.5) * 0.28;
+          float oy = (hash(vec2(fi, 2.2)) - 0.5) * 0.16;
+          float kx = packX + ox + sin(u_time * 1.1 + fi * 2.3) * 0.012;
+          float ky = packY + oy + cos(u_time * 0.9 + fi * 1.7) * 0.01;
+          float kr = mix(0.0022, 0.0055, hash(vec2(fi, 3.3)));
+          krill += smoothstep(kr, 0.0, length(vec2(x - kx, (y - ky) * 1.15)));
         }
-        col += vec3(1.0, 0.45, 0.18) * krill * 0.55 * d * showKrill * (0.45 + 0.55 * (1.0 - pressure));
-        col += vec3(1.0, 0.7, 0.35) * krill * 0.2 * d * showKrill;
+        col += vec3(1.0, 0.42, 0.14) * krill * 0.95 * d * showKrill;
+        col += vec3(1.0, 0.75, 0.35) * krill * 0.35 * d * showKrill;
       }
 
-      // Silver school — glinting mid-water fish behind the jellies
+      // Silver fish school — thin elongated bodies + hard glints (not soft blue blobs)
       if (showSilver > 0.01) {
-        float silver = 0.0;
-        float flash = 0.0;
-        for (int i = 0; i < 10; i++) {
+        float trek = u_time * 0.032;
+        float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
+        float dir = (fract(trek * 0.5) < 0.5) ? 1.0 : -1.0; // facing travel
+        float packX = aspect * (0.2 + ping * 0.55);
+        float packY = 0.4 + sin(u_time * 0.28) * 0.035;
+        for (int i = 0; i < 14; i++) {
           float fi = float(i);
-          float phase = u_time * 0.65 + fi * 0.55;
-          float trek = fi * 0.09 + u_time * 0.028;
-          float ping = abs(fract(trek * 0.5) * 2.0 - 1.0);
-          float fx = aspect * 0.12 + ping * aspect * 0.76 + sin(phase) * 0.03;
-          float fy = 0.42 + sin(phase * 1.2 + fi * 0.8) * 0.07 + (hash(vec2(fi, 2.2)) - 0.5) * 0.06;
-          vec2 fp = vec2((x - fx) * 4.2, (y - fy) * 9.0);
-          float body = exp(-dot(fp, fp));
-          float glint = exp(-pow((x - fx) * 14.0, 2.0) - pow((y - fy) * 22.0, 2.0)) *
-                        (0.5 + 0.5 * sin(u_time * 3.5 + fi * 2.1));
-          silver += body;
-          flash += glint;
+          float row = floor(fi / 5.0);
+          float colI = mod(fi, 5.0);
+          float ox = (colI - 2.0) * 0.038 * dir + (hash(vec2(fi, 0.5)) - 0.5) * 0.012;
+          float oy = (row - 1.0) * 0.028 + (hash(vec2(fi, 1.5)) - 0.5) * 0.01;
+          float fx = packX + ox + sin(u_time * 2.2 + fi) * 0.004;
+          float fy = packY + oy;
+          // capsule fish: long thin
+          float dx = (x - fx) * dir;
+          float dy = y - fy;
+          float fish = smoothstep(0.011, 0.0, abs(dy)) * smoothstep(0.028, 0.0, abs(dx));
+          fish *= smoothstep(0.03, 0.01, abs(dx) + abs(dy) * 2.2);
+          // nose taper
+          fish *= smoothstep(-0.006, 0.004, dx * dir + 0.02);
+          float glint = smoothstep(0.004, 0.0, abs(dy - 0.001)) * smoothstep(0.018, 0.0, abs(dx)) *
+                        (0.35 + 0.65 * step(0.65, sin(u_time * 4.0 + fi * 1.7)));
+          col += vec3(0.62, 0.74, 0.82) * fish * 0.85 * d * showSilver;
+          col += vec3(0.92, 0.98, 1.0) * glint * 1.1 * d * showSilver;
         }
-        col += vec3(0.55, 0.7, 0.78) * silver * 0.28 * d * showSilver;
-        col += vec3(0.85, 0.95, 1.0) * flash * 0.55 * d * showSilver;
       }
 
-      // Jellyfish — before seaweed
+      // Jellyfish — rim-led, less filled bloom (avoids giant bright patches)
       if (showJelly > 0.01) {
         for (int i = 0; i < 3; i++) {
           float fi = float(i);
           float jx = aspect * mix(0.25, 0.8, hash(vec2(fi, 1.3))) + sin(u_time * 0.22 + fi * 2.0) * 0.06;
           float jy = mix(0.35, 0.7, hash(vec2(fi, 2.4))) + sin(u_time * 0.35 + fi) * 0.03;
           vec2 jp = vec2(x - jx, (y - jy) * 1.35);
-          float bell = smoothstep(0.07, 0.0, length(jp * vec2(1.0, 1.35)));
-          float rim = smoothstep(0.07, 0.045, length(jp * vec2(1.0, 1.35))) - smoothstep(0.045, 0.02, length(jp * vec2(1.0, 1.35)));
-          col += vec3(0.35, 0.85, 0.9) * bell * 0.18 * d * showJelly;
-          col += vec3(0.7, 0.95, 1.0) * max(rim, 0.0) * 0.35 * d * showJelly;
+          float rad = length(jp * vec2(1.0, 1.35));
+          float bell = smoothstep(0.055, 0.0, rad);
+          float rim = smoothstep(0.055, 0.038, rad) - smoothstep(0.038, 0.02, rad);
+          col += vec3(0.3, 0.75, 0.85) * bell * 0.06 * d * showJelly;
+          col += vec3(0.75, 0.95, 1.0) * max(rim, 0.0) * 0.4 * d * showJelly;
           for (int t = 0; t < 4; t++) {
             float ft = float(t);
             float tx = jx + (ft - 1.5) * 0.012 + sin(y * 25.0 - u_time * 1.4 + ft + fi) * 0.008;
@@ -366,7 +378,7 @@
             float ty1 = jy - mix(0.14, 0.22, hash(vec2(fi, ft)));
             float along = smoothstep(ty0, ty0 - 0.01, y) * smoothstep(ty1 - 0.02, ty1, y);
             float td = abs(x - tx);
-            col += vec3(0.45, 0.8, 0.85) * smoothstep(0.004, 0.0, td) * along * 0.22 * d * showJelly;
+            col += vec3(0.45, 0.8, 0.85) * smoothstep(0.0035, 0.0, td) * along * 0.2 * d * showJelly;
           }
         }
       }
