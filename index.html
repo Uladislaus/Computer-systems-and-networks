@@ -1389,7 +1389,7 @@ body,
       float showSnow = smoothstep(0.06, 0.28, s);
       float showKrill = smoothstep(0.12, 0.36, s);      // distant warm swarm
       float showSilver = smoothstep(0.18, 0.42, s);     // silver mid-depth school
-      float showJelly = smoothstep(0.26, 0.5, s);        // jellies before seaweed
+      float showJelly = smoothstep(0.26, 0.5, s) * (1.0 - smoothstep(0.62, 0.82, s)); // surface-layer; gone by the vent
       float showKelp = smoothstep(0.42, 0.66, s);
       float showFish = smoothstep(0.5, 0.72, s);         // nearer dark silhouettes
       float showVent = smoothstep(0.7, 0.95, s);
