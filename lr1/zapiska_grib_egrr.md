@@ -6,10 +6,11 @@
 
 **Рабочая папка:** `D:\Work\GIS-Meteo-EGRR\`
 
-| Файл | Содержимое |
-|---|---|
-| `Postanovka_zadachi_GRIB.odt` | исходная расшифровка записи |
-| `zapiska_grib_egrr.txt` / `.md` | эта рабочая записка (анализ и план) |
+| Файл | Содержимое | Роль |
+|---|---|---|
+| `Postanovka_zadachi_GRIB.txt` | исходная расшифровка записи | **архив**, не правим |
+| `zapiska_grib_egrr.md` | рабочая записка (анализ и план) | **живой документ**, правим в чате |
+| `zapiska_grib_egrr.odt` | (опционально) копия для Word | снимок / печать, не основной |
 
 ---
 
@@ -271,8 +272,9 @@ https://mapmakers.ru/ru/News/Details/30661
 
 ```text
 D:\Work\GIS-Meteo-EGRR\
-  Postanovka_zadachi_GRIB.odt      ← исходник (расшифровка)
-  zapiska_grib_egrr.md             ← эта записка
+  Postanovka_zadachi_GRIB.txt      ← исходник (расшифровка), не трогаем
+  zapiska_grib_egrr.md             ← главный файл: правим через чат
+  zapiska_grib_egrr.odt            ← опционально (Word), можно не обновлять
   docs\
     kniga_analiz_prognoz.pdf
     novost_EGRR_30670.txt
