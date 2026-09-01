@@ -9,7 +9,8 @@
 | Файл / папка | Роль |
 |---|---|
 | `zapiska_kubicheskiy_splajn.md` | живая рабочая записка |
-| `PROMPT_dlya_novogo_chata.txt` | текст для вставки в новый чат Cursor |
+| `PROMPT_dlya_novogo_chata.txt` | текст для вставки в новый чат Cursor (код/задача) |
+| `PROMPT_obsidian_dlya_novogo_chata.txt` | текст для нового чата: Obsidian + рабочие записки |
 | `docs\` | материалы |
 | `notes\` | заметки |
 | `data\` | данные (позже) |
