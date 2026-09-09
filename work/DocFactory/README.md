@@ -1,7 +1,35 @@
 # DocFactory — офлайн генератор и конвертер документов
 
 Лёгкое приложение на **Python + tkinter + python-docx**.  
-Интернет для работы не нужен. Рекомендуемый путь на ПК: `D:\Work\DocFactory\`.
+Интернет для работы не нужен. Рекомендуемый путь: `D:\Work\DocFactory\`.
+
+## Установка (выберите один способ)
+
+### А. Простой установщик (рекомендуется сначала)
+
+1. Скопируйте папку `DocFactory` в `D:\Work\DocFactory`
+2. Запустите **`INSTALL.bat`**
+3. Запускайте через **`DocFactory.bat`** / **`start.bat`**
+
+Нужен уже установленный Python 3.12.
+
+### Б. Setup.exe / один EXE без Python
+
+См. подробности: [`installer/README_INSTALLER.md`](installer/README_INSTALLER.md)
+
+Кратко на своём ПК:
+
+```cmd
+cd /d D:\Work\DocFactory
+build_exe.bat
+```
+
+→ `dist\DocFactory.exe`  
+Далее Inno Setup: `installer\DocFactory.iss` → `DocFactorySetup.exe`
+
+Или скачайте готовый артефакт из GitHub Actions (**Build DocFactory Windows installer**).
+
+---
 
 ## Возможности
 
@@ -21,38 +49,21 @@
 
 | Направление | Как работает | Нужно дополнительно |
 |-------------|--------------|---------------------|
-| **MD → DOCX** | встроено (`python-docx`) | ничего |
-| **DOCX → MD** | встроено | ничего |
-| **DOCX → PDF** | LibreOffice `soffice` или `docx2pdf` | LibreOffice **или** Word + `pip install docx2pdf` |
-| **PDF → DOCX** | `pdf2docx` | есть в `requirements.txt` |
-| **MD → PDF** | MD→DOCX→PDF | как для DOCX→PDF |
-| **PDF → MD** | PDF→DOCX→MD | `pdf2docx` |
+| **MD → DOCX** | встроено | — |
+| **DOCX → MD** | встроено | — |
+| **DOCX → PDF** | LibreOffice / docx2pdf | LibreOffice или Word |
+| **PDF → DOCX** | pdf2docx | в requirements |
+| **MD → PDF** / **PDF → MD** | цепочки | как выше |
 
-> PDF↔DOCX сохраняет текст, но сложная вёрстка/сканы могут выглядеть иначе, чем оригинал.
-
-## Установка (Windows)
+## Ручная установка (без INSTALL.bat)
 
 ```cmd
 cd /d D:\Work\DocFactory
 python -m venv .venv
 .venv\Scripts\activate.bat
 python -m pip install -r requirements.txt
-```
-
-Для **DOCX → PDF** поставьте [LibreOffice](https://www.libreoffice.org/) (рекомендуется)  
-или используйте установленный Microsoft Word + `pip install docx2pdf`.
-
-## Запуск GUI
-
-```cmd
-cd /d D:\Work\DocFactory
-.venv\Scripts\activate.bat
 python app.py
 ```
-
-Вкладки:
-1. **Шаблоны → DOCX** — заполнить поля и собрать документ.
-2. **Конвертация MD / DOCX / PDF** — выбрать файл и режим.
 
 ## CLI
 
@@ -60,29 +71,23 @@ python app.py
 python cli.py --list
 python cli.py --engines
 python cli.py --type resume_cv --out output
-
 python cli.py --convert notes.md --to notes.docx
-python cli.py --convert plan.docx --to plan.pdf
-python cli.py --convert scan.pdf --to scan.docx
 ```
 
 ## Структура
 
 ```
 DocFactory/
-  app.py
-  cli.py
-  requirements.txt
+  INSTALL.bat / start.bat / build_exe.bat
+  app.py / cli.py
+  DocFactory.spec
+  installer/DocFactory.iss
   docfactory/
-    catalog.py
-    engine.py
-    generators.py
-    convert.py      # MD/DOCX/PDF
   output/
 ```
 
 ## Важно
 
-- Шаблоны — для печати; не замена гербовых бланков организации.
-- Приложение не ходит в сеть и не содержит ИИ.
-- Перед сдачей в кадры сверьте реквизиты и подписи.
+- Шаблоны для печати, не гербовые бланки организации.
+- Приложение офлайн, без встроенного ИИ.
+- Для PDF желателен LibreOffice.
