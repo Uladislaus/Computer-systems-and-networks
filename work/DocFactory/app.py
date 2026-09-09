@@ -2,6 +2,12 @@
 """DocFactory — генератор и конвертер Word/PDF/Markdown (офлайн)."""
 from __future__ import annotations
 
+import warnings
+
+# pymupdf/pdf2docx шумят deprecation при импорте — на работу не влияет
+warnings.filterwarnings("ignore", message=".*fitz.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -20,6 +26,14 @@ class DocFactoryApp(tk.Tk):
         self.title("DocFactory — документы и конвертация (офлайн)")
         self.geometry("1000x740")
         self.minsize(880, 620)
+        # Вывести окно на передний план (часто прячется за другими окнами)
+        self.lift()
+        self.attributes("-topmost", True)
+        self.after(400, lambda: self.attributes("-topmost", False))
+        try:
+            self.focus_force()
+        except tk.TclError:
+            pass
 
         self.out_dir = tk.StringVar(value=str(DEFAULT_OUT))
         self.selected_id = tk.StringVar(value=CATALOG[0].id)

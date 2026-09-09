@@ -6,6 +6,8 @@ if not exist ".venv\Scripts\python.exe" (
   pause
   exit /b 1
 )
+echo Запуск DocFactory...
+echo Если окно не видно — проверьте панель задач (DocFactory / Python).
 call ".venv\Scripts\activate.bat"
 python app.py
 if errorlevel 1 (
