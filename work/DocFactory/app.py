@@ -194,10 +194,9 @@ class DocFactoryApp(tk.Tk):
         ttk.Button(btns, text="Подставить имя результата", command=self._suggest_dst).pack(side=tk.LEFT, padx=8)
 
         tip = (
-            "Примеры:\n"
-            "• notes.md → notes.docx\n"
-            "• plan.docx → plan.pdf (нужен LibreOffice или Word)\n"
-            "• scan.pdf → scan.docx (pdf2docx; вёрстка может отличаться от оригинала)"
+            "Конвертер DOCX → MD уже есть: режим «DOCX → MD».\n"
+            "Также: MD → DOCX, DOCX → PDF, PDF → DOCX, MD → PDF, PDF → MD.\n"
+            "PDF↔DOCX: текст сохраняется, сложная вёрстка может отличаться."
         )
         ttk.Label(parent, text=tip, padding=8, justify=tk.LEFT).pack(anchor="w")
 

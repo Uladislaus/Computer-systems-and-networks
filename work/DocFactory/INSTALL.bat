@@ -13,9 +13,6 @@ echo.
 where python >nul 2>&1
 if errorlevel 1 (
   echo [ОШИБКА] Python не найден в PATH.
-  echo Установите Python 3.12 и галочку Add to PATH.
-  echo Или откройте cmd и выполните: where.exe python
-  echo.
   pause
   exit /b 1
 )
@@ -26,9 +23,7 @@ where.exe python
 echo.
 
 if not exist "app.py" (
-  echo [ОШИБКА] Не найден app.py — вы не в папке DocFactory?
-  echo Нужно: D:\Work\DocFactory\INSTALL.bat
-  echo.
+  echo [ОШИБКА] Не найден app.py
   pause
   exit /b 1
 )
@@ -45,10 +40,9 @@ if not exist ".venv\Scripts\python.exe" (
   echo .venv уже есть
 )
 
-call ".venv\Scripts\activate.bat"
-echo Устанавливаю пакеты...
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+echo Устанавливаю пакеты в .venv ...
+".venv\Scripts\python.exe" -m pip install --upgrade pip
+".venv\Scripts\python.exe" -m pip install -r requirements.txt
 if errorlevel 1 (
   echo [ОШИБКА] pip install не удался
   pause
@@ -60,24 +54,17 @@ echo Пишу DocFactory.bat ...
 (
   echo @echo off
   echo cd /d "%%~dp0"
-  echo call .venv\Scripts\activate.bat
-  echo python app.py
+  echo ".venv\Scripts\python.exe" app.py
   echo if errorlevel 1 pause
 ) > "DocFactory.bat"
 
 echo.
-echo Проверка движков:
-python cli.py --engines
+echo Проверка:
+".venv\Scripts\python.exe" -c "import docx; print('docx OK')"
+".venv\Scripts\python.exe" cli.py --engines
 echo.
 
 echo ============================================
-echo   Готово. Запуск: start.bat или DocFactory.bat
+echo   Готово. Запуск: start.bat
 echo ============================================
-echo.
 pause
-
-echo Запустить сейчас? Закройте окно = Нет. Или введите Y и Enter:
-set /p ANS=Y/N: 
-if /I "%ANS%"=="Y" (
-  call start.bat
-)
