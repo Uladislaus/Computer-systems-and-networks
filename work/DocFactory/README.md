@@ -1,13 +1,11 @@
-# DocFactory — офлайн генератор Word-документов
+# DocFactory — офлайн генератор и конвертер документов
 
 Лёгкое приложение на **Python + tkinter + python-docx**.  
-Интернет не нужен. Работает на Windows после установки зависимостей в venv.
-
-Локальный путь (рекомендуется): скопируйте папку в `D:\Work\DocFactory\`.
+Интернет для работы не нужен. Рекомендуемый путь на ПК: `D:\Work\DocFactory\`.
 
 ## Возможности
 
-Формирует готовые `.docx` (Times New Roman, таблицы, блоки подписей):
+### 1) Шаблоны → DOCX
 
 | Категория | Документы |
 |-----------|-----------|
@@ -19,6 +17,19 @@
 | Заявления | отпуск / день |
 | Прочее | протокол совещания |
 
+### 2) Конвертация файлов
+
+| Направление | Как работает | Нужно дополнительно |
+|-------------|--------------|---------------------|
+| **MD → DOCX** | встроено (`python-docx`) | ничего |
+| **DOCX → MD** | встроено | ничего |
+| **DOCX → PDF** | LibreOffice `soffice` или `docx2pdf` | LibreOffice **или** Word + `pip install docx2pdf` |
+| **PDF → DOCX** | `pdf2docx` | есть в `requirements.txt` |
+| **MD → PDF** | MD→DOCX→PDF | как для DOCX→PDF |
+| **PDF → MD** | PDF→DOCX→MD | `pdf2docx` |
+
+> PDF↔DOCX сохраняет текст, но сложная вёрстка/сканы могут выглядеть иначе, чем оригинал.
+
 ## Установка (Windows)
 
 ```cmd
@@ -28,6 +39,9 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
+Для **DOCX → PDF** поставьте [LibreOffice](https://www.libreoffice.org/) (рекомендуется)  
+или используйте установленный Microsoft Word + `pip install docx2pdf`.
+
 ## Запуск GUI
 
 ```cmd
@@ -36,37 +50,39 @@ cd /d D:\Work\DocFactory
 python app.py
 ```
 
-1. Выберите тип документа.
-2. Заполните поля.
-3. Укажите папку сохранения (по умолчанию `output\`).
-4. Нажмите **«Сформировать DOCX»**.
+Вкладки:
+1. **Шаблоны → DOCX** — заполнить поля и собрать документ.
+2. **Конвертация MD / DOCX / PDF** — выбрать файл и режим.
 
-В табличных полях: строки через Enter, колонки через `|`.
-
-## CLI (без окна)
+## CLI
 
 ```cmd
 python cli.py --list
+python cli.py --engines
 python cli.py --type resume_cv --out output
-python cli.py --type sluzhebnaya_zapiska --data example.json --out output
+
+python cli.py --convert notes.md --to notes.docx
+python cli.py --convert plan.docx --to plan.pdf
+python cli.py --convert scan.pdf --to scan.docx
 ```
 
 ## Структура
 
 ```
 DocFactory/
-  app.py                 # окно
-  cli.py                 # командная строка
+  app.py
+  cli.py
   requirements.txt
   docfactory/
-    catalog.py           # типы и поля
-    engine.py            # оформление Word
-    generators.py        # шаблоны документов
-  output/                # готовые файлы
+    catalog.py
+    engine.py
+    generators.py
+    convert.py      # MD/DOCX/PDF
+  output/
 ```
 
 ## Важно
 
-- Это **шаблоны для печати**, не замена бланков с гербом организации, если кадры требуют строго свой макет.
-- Перед сдачей в кадры сверьте реквизиты, даты и подписи с наставником/руководителем.
-- Приложение **не содержит ИИ** и не ходит в сеть.
+- Шаблоны — для печати; не замена гербовых бланков организации.
+- Приложение не ходит в сеть и не содержит ИИ.
+- Перед сдачей в кадры сверьте реквизиты и подписи.
