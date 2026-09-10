@@ -345,7 +345,7 @@ class DocFactoryApp(tk.Tk):
 
         hdr = ttk.Frame(fields_box, style="Card.TFrame")
         hdr.pack(fill=tk.X)
-        for col, text, w in (
+        for text, w in (
             ("Подпись поля", 28),
             ("Роль в документе", 18),
             ("Многострочное", 12),
