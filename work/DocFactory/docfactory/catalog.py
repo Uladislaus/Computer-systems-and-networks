@@ -29,6 +29,49 @@ COMMON_ORG = (
 
 CATALOG: tuple[DocType, ...] = (
     DocType(
+        id="doklad_o_prodelannoy_rabote",
+        title="Доклад о проделанной работе",
+        category="Отчёты",
+        description="Доклад/отчёт по завершении темы или программы (например, кубический сплайн): цель, ход работ, результаты, выводы.",
+        filename="Doklad_o_prodelannoy_rabote.docx",
+        fields=COMMON_ORG
+        + (
+            Field("tema", "Тема / программа / проект", default="Кубический сплайн"),
+            Field("fio", "ФИО докладчика"),
+            Field("dolzhnost", "Должность"),
+            Field("period", "Срок выполнения"),
+            Field("data", "Дата доклада", default="«____» ______________ 202__ г."),
+            Field("cel", "Цель работы", multiline=True),
+            Field("iskhodnye", "Исходные данные / постановка", multiline=True),
+            Field("vypolneno", "Что сделано (этапы)", multiline=True),
+            Field("rezultaty", "Результаты", multiline=True),
+            Field("produkty", "Документы / код / материалы на выходе", multiline=True),
+            Field("vyvody", "Выводы", multiline=True),
+            Field("predlozheniya", "Предложения / дальнейшие шаги", multiline=True),
+            Field("rukovoditel", "Руководитель / кому представляется"),
+        ),
+    ),
+    DocType(
+        id="otchet_zaversheniya_programmy",
+        title="Отчёт о завершении работы по программе",
+        category="Отчёты",
+        description="Краткий итоговый отчёт: программа закрыта, перечень результатов и акт передачи материалов.",
+        filename="Otchet_zaversheniya_programmy.docx",
+        fields=COMMON_ORG
+        + (
+            Field("programma", "Наименование программы / темы"),
+            Field("fio", "Исполнитель"),
+            Field("dolzhnost", "Должность"),
+            Field("sroki", "Сроки"),
+            Field("data", "Дата", default="«____» ______________ 202__ г."),
+            Field("zadachi", "Поставленные задачи", multiline=True),
+            Field("vypolneno", "Выполнено", multiline=True),
+            Field("rezultaty", "Итоги", multiline=True),
+            Field("peredano", "Что передано (файлы, записки, код)", multiline=True),
+            Field("rukovoditel", "Принял / согласовал"),
+        ),
+    ),
+    DocType(
         id="otchet_prodelannoy_raboty",
         title="Отчёт о проделанной работе",
         category="Отчёты",

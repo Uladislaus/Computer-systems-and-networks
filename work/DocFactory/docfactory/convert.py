@@ -266,19 +266,141 @@ def docx_to_pdf(src: Path, dst: Path | None = None) -> Path:
     return dst
 
 
-def pdf_to_docx(src: Path, dst: Path | None = None) -> Path:
-    """PDF → DOCX через pdf2docx (офлайн-библиотека)."""
+def _docx_text_stats(path: Path) -> tuple[int, int]:
+    """Возвращает (число непробельных символов текста, число картинок)."""
+    from zipfile import ZipFile
+    import re
+
+    path = Path(path)
+    with ZipFile(path) as z:
+        xml = z.read("word/document.xml")
+        texts = re.findall(rb"<w:t[^>]*>([^<]*)</w:t>", xml)
+        chars = sum(len(t.decode("utf-8", "ignore").strip()) for t in texts)
+        media = [n for n in z.namelist() if n.startswith("word/media/")]
+    return chars, len(media)
+
+
+def _tesseract_available() -> bool:
+    if shutil.which("tesseract"):
+        return True
+    # Common Windows install paths
+    for p in (
+        Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+        Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
+    ):
+        if p.exists():
+            return True
+    return False
+
+
+def _tesseract_cmd() -> str | None:
+    w = shutil.which("tesseract")
+    if w:
+        return w
+    for p in (
+        Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+        Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
+    ):
+        if p.exists():
+            return str(p)
+    return None
+
+
+def pdf_ocr_pages(src: Path, lang: str = "rus+eng") -> list[str]:
+    """OCR каждой страницы PDF → список текстов страниц."""
+    src = Path(src)
+    try:
+        import pymupdf as fitz  # type: ignore
+    except ImportError as exc:
+        raise ConvertError("Для OCR нужен pymupdf (ставится с pdf2docx).") from exc
+    try:
+        import pytesseract  # type: ignore
+        from PIL import Image  # type: ignore
+        import io
+    except ImportError as exc:
+        raise ConvertError(
+            "Для OCR установите: pip install pytesseract Pillow\n"
+            "и программу Tesseract OCR: https://github.com/UB-Mannheim/tesseract/wiki"
+        ) from exc
+
+    cmd = _tesseract_cmd()
+    if not cmd:
+        raise ConvertError(
+            "Tesseract OCR не найден.\n"
+            "Windows: установите https://github.com/UB-Mannheim/tesseract/wiki\n"
+            "при установке отметьте языки Russian + English.\n"
+            "Затем перезапустите DocFactory."
+        )
+    pytesseract.pytesseract.tesseract_cmd = cmd
+
+    doc = fitz.open(src)
+    pages: list[str] = []
+    try:
+        for i in range(doc.page_count):
+            page = doc[i]
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            text = pytesseract.image_to_string(img, lang=lang) or ""
+            pages.append(text.strip())
+    finally:
+        doc.close()
+    if not any(pages):
+        raise ConvertError("OCR не распознал текст (пустой результат).")
+    return pages
+
+
+def pdf_ocr_to_docx(src: Path, dst: Path | None = None, lang: str = "rus+eng") -> Path:
+    """PDF-скан → DOCX через OCR (Tesseract)."""
+    src = Path(src)
+    if src.suffix.lower() != ".pdf":
+        raise ConvertError("Ожидался файл .pdf")
+    dst = Path(dst) if dst else src.with_name(src.stem + "_ocr.docx")
+    pages = pdf_ocr_pages(src, lang=lang)
+    doc = new_document()
+    for i, text in enumerate(pages):
+        if i:
+            doc.add_page_break()
+        add_para(doc, f"— страница {i + 1} —", size=10, italic=True)
+        if not text:
+            add_para(doc, "[текст не распознан]")
+            continue
+        for line in text.splitlines():
+            add_para(doc, line.rstrip() or " ")
+    return save_doc(doc, dst)
+
+
+def pdf_ocr_to_md(src: Path, dst: Path | None = None, lang: str = "rus+eng") -> Path:
+    """PDF-скан → Markdown через OCR."""
+    src = Path(src)
+    dst = Path(dst) if dst else src.with_name(src.stem + "_ocr.md")
+    pages = pdf_ocr_pages(src, lang=lang)
+    parts: list[str] = [f"# OCR: {src.name}", ""]
+    for i, text in enumerate(pages, start=1):
+        parts.append(f"## Страница {i}")
+        parts.append("")
+        parts.append(text or "_[текст не распознан]_")
+        parts.append("")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text("\n".join(parts).strip() + "\n", encoding="utf-8")
+    return dst
+
+
+def pdf_to_docx(src: Path, dst: Path | None = None, *, force_ocr: bool = False) -> Path:
+    """PDF → DOCX. Для сканов без текста — авто OCR (или force_ocr=True)."""
     src = Path(src)
     if src.suffix.lower() != ".pdf":
         raise ConvertError("Ожидался файл .pdf")
     dst = Path(dst) if dst else src.with_suffix(".docx")
     dst.parent.mkdir(parents=True, exist_ok=True)
+
+    if force_ocr:
+        return pdf_ocr_to_docx(src, dst)
+
     try:
         from pdf2docx import Converter  # type: ignore
     except ImportError as exc:
-        raise ConvertError(
-            "Для PDF→DOCX установите зависимость: pip install pdf2docx"
-        ) from exc
+        # нет pdf2docx — сразу OCR
+        return pdf_ocr_to_docx(src, dst)
 
     cv = Converter(str(src))
     try:
@@ -287,14 +409,29 @@ def pdf_to_docx(src: Path, dst: Path | None = None) -> Path:
         cv.close()
     if not dst.exists():
         raise ConvertError("pdf2docx не создал файл DOCX.")
+
+    chars, images = _docx_text_stats(dst)
+    # Скан: почти нет текста, но есть картинки страниц
+    if chars < 80 and images >= 1:
+        ocr_dst = dst.with_name(dst.stem + "_ocr.docx")
+        try:
+            return pdf_ocr_to_docx(src, ocr_dst)
+        except ConvertError:
+            # оставляем «картиночный» docx, но предупреждаем
+            raise ConvertError(
+                "PDF похож на скан: в DOCX почти нет текста (только изображения страниц).\n"
+                "Для распознавания установите Tesseract OCR "
+                "(https://github.com/UB-Mannheim/tesseract/wiki) и пакеты:\n"
+                "  pip install pytesseract Pillow\n"
+                "Затем выберите режим «PDF → DOCX (OCR)»."
+            )
     return dst
 
 
-def convert_auto(src: Path, dst: Path | None = None) -> Path:
+def convert_auto(src: Path, dst: Path | None = None, *, force_ocr: bool = False) -> Path:
     """Автовыбор направления по расширениям src/dst."""
     src = Path(src)
     if dst is None:
-        # sensible defaults
         mapping = {
             ".md": ".docx",
             ".docx": ".pdf",
@@ -315,12 +452,17 @@ def convert_auto(src: Path, dst: Path | None = None) -> Path:
     if pair == (".docx", ".pdf"):
         return docx_to_pdf(src, dst)
     if pair == (".pdf", ".docx"):
-        return pdf_to_docx(src, dst)
+        return pdf_to_docx(src, dst, force_ocr=force_ocr)
     if pair == (".pdf", ".md"):
-        # via docx
+        if force_ocr:
+            return pdf_ocr_to_md(src, dst)
         tmp = dst.with_suffix(".tmp.docx")
-        pdf_to_docx(src, tmp)
         try:
+            pdf_to_docx(src, tmp, force_ocr=False)
+            # если получился OCR-файл с другим именем
+            chars, _ = _docx_text_stats(tmp) if tmp.exists() else (0, 0)
+            if chars < 80:
+                return pdf_ocr_to_md(src, dst)
             return docx_to_md(tmp, dst)
         finally:
             if tmp.exists():
@@ -343,6 +485,7 @@ def backend_status() -> dict[str, str]:
         "docx_md": "ok (python-docx)",
         "docx_pdf": "нет LibreOffice / docx2pdf",
         "pdf_docx": "нет pdf2docx",
+        "pdf_ocr": "нет Tesseract / pytesseract",
     }
     if _find_libreoffice():
         status["docx_pdf"] = f"ok (LibreOffice: {_find_libreoffice()})"
@@ -357,6 +500,16 @@ def backend_status() -> dict[str, str]:
         import pdf2docx  # noqa: F401
 
         status["pdf_docx"] = "ok (pdf2docx)"
+    except ImportError:
+        pass
+    try:
+        import pytesseract  # noqa: F401
+        from PIL import Image  # noqa: F401
+
+        if _tesseract_available():
+            status["pdf_ocr"] = f"ok (Tesseract: {_tesseract_cmd()})"
+        else:
+            status["pdf_ocr"] = "pytesseract есть, но Tesseract OCR не установлен"
     except ImportError:
         pass
     return status

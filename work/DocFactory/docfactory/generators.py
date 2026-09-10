@@ -39,6 +39,8 @@ def generate(doc_id: str, data: dict, out_dir: Path) -> Path:
     dtype = get_doc_type(doc_id)
     out_path = Path(out_dir) / dtype.filename
     generators = {
+        "doklad_o_prodelannoy_rabote": _doklad_raboty,
+        "otchet_zaversheniya_programmy": _otchet_zaversheniya,
         "otchet_prodelannoy_raboty": _otchet_raboty,
         "otchet_po_proektu": _otchet_proekt,
         "otchet_za_period": _otchet_period,
@@ -67,6 +69,79 @@ def generate(doc_id: str, data: dict, out_dir: Path) -> Path:
 def _fill_paras(doc, text: str, placeholder: str) -> None:
     for ln in _lines(text) or [placeholder]:
         add_para(doc, ln)
+
+
+def _doklad_raboty(data: dict):
+    doc = new_document()
+    add_title(doc, "ДОКЛАД О ПРОДЕЛАННОЙ РАБОТЕ")
+    add_kv_table(
+        doc,
+        [
+            ("Тема / программа", v(data, "tema")),
+            ("Организация", v(data, "org")),
+            ("Подразделение", v(data, "podrazdelenie")),
+            ("Докладчик", f"{v(data, 'fio')}, {v(data, 'dolzhnost')}"),
+            ("Срок выполнения", v(data, "period")),
+            ("Дата", v(data, "data")),
+        ],
+    )
+    add_heading(doc, "1. Цель работы")
+    _fill_paras(doc, v(data, "cel", ""), "________________")
+    add_heading(doc, "2. Исходные данные / постановка")
+    _fill_paras(doc, v(data, "iskhodnye", ""), "________________")
+    add_heading(doc, "3. Ход работ (этапы)")
+    add_bullets(doc, _lines(v(data, "vypolneno", "")) or ["________________"])
+    add_heading(doc, "4. Результаты")
+    _fill_paras(doc, v(data, "rezultaty", ""), "________________")
+    add_heading(doc, "5. Материалы на выходе")
+    add_bullets(doc, _lines(v(data, "produkty", "")) or ["________________"])
+    add_heading(doc, "6. Выводы")
+    _fill_paras(doc, v(data, "vyvody", ""), "________________")
+    add_heading(doc, "7. Предложения / дальнейшие шаги")
+    _fill_paras(doc, v(data, "predlozheniya", ""), "________________")
+    add_signature_block(
+        doc,
+        [
+            f"Докладчик: _________________ / {v(data, 'fio')} /",
+            f"Представлено: _________________ / {v(data, 'rukovoditel')} /",
+            v(data, "data"),
+        ],
+    )
+    return doc
+
+
+def _otchet_zaversheniya(data: dict):
+    doc = new_document()
+    add_title(doc, "ОТЧЁТ О ЗАВЕРШЕНИИ РАБОТЫ ПО ПРОГРАММЕ")
+    add_kv_table(
+        doc,
+        [
+            ("Программа / тема", v(data, "programma")),
+            ("Организация", v(data, "org")),
+            ("Подразделение", v(data, "podrazdelenie")),
+            ("Исполнитель", f"{v(data, 'fio')}, {v(data, 'dolzhnost')}"),
+            ("Сроки", v(data, "sroki")),
+            ("Дата", v(data, "data")),
+        ],
+    )
+    add_heading(doc, "1. Поставленные задачи")
+    add_bullets(doc, _lines(v(data, "zadachi", "")) or ["________________"])
+    add_heading(doc, "2. Выполнено")
+    add_bullets(doc, _lines(v(data, "vypolneno", "")) or ["________________"])
+    add_heading(doc, "3. Итоги")
+    _fill_paras(doc, v(data, "rezultaty", ""), "________________")
+    add_heading(doc, "4. Передано")
+    add_bullets(doc, _lines(v(data, "peredano", "")) or ["________________"])
+    add_para(doc, "Работа по программе считается завершённой.")
+    add_signature_block(
+        doc,
+        [
+            f"Исполнитель: _________________ / {v(data, 'fio')} /",
+            f"Принял / согласовал: _________________ / {v(data, 'rukovoditel')} /",
+            v(data, "data"),
+        ],
+    )
+    return doc
 
 
 def _otchet_raboty(data: dict):

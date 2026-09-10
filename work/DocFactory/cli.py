@@ -19,6 +19,7 @@ def main() -> None:
     parser.add_argument("--out", default="output", help="Папка вывода для шаблонов")
     parser.add_argument("--convert", metavar="SRC", help="Конвертировать файл (MD/DOCX/PDF)")
     parser.add_argument("--to", dest="convert_to", help="Путь результата конвертации")
+    parser.add_argument("--ocr", action="store_true", help="Принудительный OCR для PDF-сканов")
     parser.add_argument("--engines", action="store_true", help="Статус движков конвертации")
     args = parser.parse_args()
 
@@ -29,11 +30,15 @@ def main() -> None:
 
     if args.list:
         for d in CATALOG:
-            print(f"{d.id:28} | {d.category:24} | {d.title}")
+            print(f"{d.id:32} | {d.category:24} | {d.title}")
         return
 
     if args.convert:
-        path = convert_auto(Path(args.convert), Path(args.convert_to) if args.convert_to else None)
+        path = convert_auto(
+            Path(args.convert),
+            Path(args.convert_to) if args.convert_to else None,
+            force_ocr=args.ocr,
+        )
         print(path)
         return
 

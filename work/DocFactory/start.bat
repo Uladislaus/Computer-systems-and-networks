@@ -12,6 +12,6 @@ echo Если окно не видно — Alt+Tab / панель задач.
 if errorlevel 1 (
   echo.
   echo Приложение завершилось с ошибкой.
-  echo Если написано No module named docx — снова запустите INSTALL.bat
+  echo Если No module named docx — снова INSTALL.bat
   pause
 )

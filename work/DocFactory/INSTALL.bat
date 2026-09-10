@@ -10,6 +10,9 @@ echo.
 echo Папка: %CD%
 echo.
 
+REM Снять блокировку «скачано из интернета» (меньше окон про издателя)
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -LiteralPath '%CD%' -Recurse -ErrorAction SilentlyContinue | Unblock-File" >nul 2>&1
+
 where python >nul 2>&1
 if errorlevel 1 (
   echo [ОШИБКА] Python не найден в PATH.
@@ -58,6 +61,10 @@ echo Пишу DocFactory.bat ...
   echo if errorlevel 1 pause
 ) > "DocFactory.bat"
 
+echo Создаю ярлык на рабочем столе ...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ws = New-Object -ComObject WScript.Shell; $p = Join-Path $env:USERPROFILE 'Desktop\DocFactory.lnk'; $s = $ws.CreateShortcut($p); $s.TargetPath = '%CD%\DocFactory.bat'; $s.WorkingDirectory = '%CD%'; $s.Description = 'DocFactory by rva'; $s.Save()"
+
 echo.
 echo Проверка:
 ".venv\Scripts\python.exe" -c "import docx; print('docx OK')"
@@ -65,6 +72,8 @@ echo Проверка:
 echo.
 
 echo ============================================
-echo   Готово. Запуск: start.bat
+echo   Готово. Запуск: start.bat или ярлык DocFactory
+echo   Про издателя см. docs\PUBLISHER.md
+echo   Для OCR сканов: поставьте Tesseract OCR (rus+eng)
 echo ============================================
 pause
