@@ -6,14 +6,14 @@ import argparse
 import json
 from pathlib import Path
 
-from docfactory.catalog import CATALOG, get_doc_type
+from docfactory.catalog import full_catalog, get_doc_type
 from docfactory.convert import backend_status, convert_auto
 from docfactory.generators import generate
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="DocFactory offline DOCX/PDF/MD tool")
-    parser.add_argument("--list", action="store_true", help="Список типов документов")
+    parser.add_argument("--list", action="store_true", help="Список типов документов (встроенные + свои)")
     parser.add_argument("--type", dest="doc_type", help="ID типа документа")
     parser.add_argument("--data", help="JSON-файл с полями")
     parser.add_argument("--out", default="output", help="Папка вывода для шаблонов")
@@ -29,7 +29,7 @@ def main() -> None:
         return
 
     if args.list:
-        for d in CATALOG:
+        for d in full_catalog():
             print(f"{d.id:32} | {d.category:24} | {d.title}")
         return
 

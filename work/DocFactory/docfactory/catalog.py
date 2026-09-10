@@ -430,12 +430,25 @@ def get_doc_type(doc_id: str) -> DocType:
     for item in CATALOG:
         if item.id == doc_id:
             return item
+    # Пользовательские шаблоны (ленивый импорт, чтобы не плодить циклы)
+    from docfactory.custom_templates import load_custom
+
+    custom = load_custom(doc_id)
+    if custom is not None:
+        return custom.to_doc_type()
     raise KeyError(doc_id)
+
+
+def full_catalog() -> list[DocType]:
+    """Встроенные + сохранённые пользователем шаблоны."""
+    from docfactory.custom_templates import list_customs
+
+    return list(CATALOG) + [c.to_doc_type() for c in list_customs()]
 
 
 def categories() -> list[str]:
     seen: list[str] = []
-    for item in CATALOG:
+    for item in full_catalog():
         if item.category not in seen:
             seen.append(item.category)
     return seen

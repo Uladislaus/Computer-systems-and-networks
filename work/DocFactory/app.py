@@ -11,8 +11,22 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from docfactory.catalog import CATALOG, get_doc_type
+from docfactory.catalog import full_catalog, get_doc_type
 from docfactory.convert import ConvertError, backend_status, convert_auto
+from docfactory.custom_templates import (
+    ROLE_BODY,
+    ROLE_LABELS,
+    ROLE_META,
+    ROLE_SIGNATURE,
+    CustomField,
+    CustomTemplate,
+    delete_custom,
+    is_custom_id,
+    list_customs,
+    load_custom,
+    new_template_id,
+    save_custom,
+)
 from docfactory.generators import generate
 
 ROOT = Path(__file__).resolve().parent
@@ -32,8 +46,8 @@ class DocFactoryApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("DocFactory")
-        self.geometry("1040x760")
-        self.minsize(900, 640)
+        self.geometry("1080x780")
+        self.minsize(920, 660)
         self.configure(bg=C_BG)
         self._setup_style()
 
@@ -46,23 +60,31 @@ class DocFactoryApp(tk.Tk):
             pass
 
         self.out_dir = tk.StringVar(value=str(DEFAULT_OUT))
-        self.selected_id = tk.StringVar(value=CATALOG[0].id)
+        self.selected_id = tk.StringVar()
         self.field_vars: dict[str, tk.Variable] = {}
         self.field_widgets: dict[str, tk.Widget] = {}
         self.src_file = tk.StringVar()
         self.dst_file = tk.StringVar()
         self.conv_mode = tk.StringVar(value="Авто по расширениям")
+        self.id_by_title: dict[str, str] = {}
+
+        # конструктор
+        self._builder_fields: list[dict] = []
+        self._edit_id: str | None = None
 
         self._build_header()
         nb = ttk.Notebook(self, style="Card.TNotebook")
         nb.pack(fill=tk.BOTH, expand=True, padx=16, pady=(0, 16))
         self.tab_gen = ttk.Frame(nb, style="Card.TFrame")
+        self.tab_mine = ttk.Frame(nb, style="Card.TFrame")
         self.tab_conv = ttk.Frame(nb, style="Card.TFrame")
         nb.add(self.tab_gen, text="  Шаблоны  ")
+        nb.add(self.tab_mine, text="  Мои шаблоны  ")
         nb.add(self.tab_conv, text="  Конвертация  ")
         self._build_generator(self.tab_gen)
+        self._build_my_templates(self.tab_mine)
         self._build_converter(self.tab_conv)
-        self._on_select()
+        self._refresh_catalog(select_first=True)
 
     def _setup_style(self) -> None:
         style = ttk.Style(self)
@@ -113,21 +135,20 @@ class DocFactoryApp(tk.Tk):
         ttk.Label(head, text="DocFactory", style="Header.TLabel").pack(side=tk.LEFT)
         ttk.Label(
             head,
-            text="шаблоны · отчёты · MD/DOCX/PDF · OCR",
+            text="шаблоны · свои формы · MD/DOCX/PDF · OCR",
             background=C_BG,
             foreground=C_MUTED,
             font=("Segoe UI", 10),
         ).pack(side=tk.LEFT, padx=12)
+
+    # ─── Вкладка шаблонов ───────────────────────────────────────────
 
     def _build_generator(self, parent: ttk.Frame) -> None:
         top = ttk.Frame(parent, style="Card.TFrame", padding=14)
         top.pack(fill=tk.X)
 
         ttk.Label(top, text="Тип документа", style="Card.TLabel").pack(side=tk.LEFT)
-        titles = [f"{d.category}: {d.title}" for d in CATALOG]
-        self.id_by_title = {f"{d.category}: {d.title}": d.id for d in CATALOG}
-        self.combo = ttk.Combobox(top, values=titles, state="readonly", width=56)
-        self.combo.set(titles[0])
+        self.combo = ttk.Combobox(top, values=[], state="readonly", width=56)
         self.combo.pack(side=tk.LEFT, padx=10)
         self.combo.bind("<<ComboboxSelected>>", lambda e: self._on_select())
 
@@ -139,7 +160,7 @@ class DocFactoryApp(tk.Tk):
         ttk.Label(path_row, text="Сохранить в", style="Muted.TLabel").pack(side=tk.LEFT)
         ttk.Entry(path_row, textvariable=self.out_dir).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=8)
 
-        self.desc = ttk.Label(parent, text="", style="Muted.TLabel", wraplength=960, padding=(14, 4))
+        self.desc = ttk.Label(parent, text="", style="Muted.TLabel", wraplength=980, padding=(14, 4))
         self.desc.pack(fill=tk.X)
 
         wrap = ttk.Frame(parent, style="Card.TFrame", padding=10)
@@ -156,10 +177,37 @@ class DocFactoryApp(tk.Tk):
 
         ttk.Label(
             parent,
-            text="Подсказка: в табличных полях строки — Enter, колонки — символ |   ·   отчёты и доклады — в категории «Отчёты» (вверху списка)",
+            text="Подсказка: свои шаблоны — вкладка «Мои шаблоны». В табличных полях: строки — Enter, колонки — |",
             style="Muted.TLabel",
             padding=(14, 8),
         ).pack(fill=tk.X)
+
+    def _refresh_catalog(self, select_id: str | None = None, select_first: bool = False) -> None:
+        catalog = full_catalog()
+        titles = [f"{d.category}: {d.title}" for d in catalog]
+        self.id_by_title = {f"{d.category}: {d.title}": d.id for d in catalog}
+        self.combo.configure(values=titles)
+        if not titles:
+            return
+        target_title = None
+        if select_id:
+            for title, did in self.id_by_title.items():
+                if did == select_id:
+                    target_title = title
+                    break
+        if target_title is None and not select_first:
+            cur = self.combo.get()
+            if cur in self.id_by_title:
+                target_title = cur
+        if target_title is None:
+            # предпочитаем первый встроенный, иначе любой
+            target_title = titles[0]
+            for t in titles:
+                if not t.startswith("Мои шаблоны:"):
+                    target_title = t
+                    break
+        self.combo.set(target_title)
+        self._on_select()
 
     def _pick_out(self) -> None:
         path = filedialog.askdirectory(initialdir=self.out_dir.get() or str(DEFAULT_OUT))
@@ -168,6 +216,8 @@ class DocFactoryApp(tk.Tk):
 
     def _on_select(self) -> None:
         title = self.combo.get()
+        if title not in self.id_by_title:
+            return
         doc_id = self.id_by_title[title]
         self.selected_id.set(doc_id)
         dtype = get_doc_type(doc_id)
@@ -225,6 +275,352 @@ class DocFactoryApp(tk.Tk):
             messagebox.showerror("Ошибка", str(exc))
             return
         messagebox.showinfo("Готово", f"Документ сохранён:\n{path}")
+
+    # ─── Вкладка «Мои шаблоны» ──────────────────────────────────────
+
+    def _build_my_templates(self, parent: ttk.Frame) -> None:
+        outer = ttk.Frame(parent, style="Card.TFrame", padding=12)
+        outer.pack(fill=tk.BOTH, expand=True)
+        outer.columnconfigure(1, weight=1)
+        outer.rowconfigure(0, weight=1)
+
+        left = ttk.Frame(outer, style="Card.TFrame")
+        left.grid(row=0, column=0, sticky="nsw", padx=(0, 12))
+        ttk.Label(left, text="Сохранённые", style="Card.TLabel").pack(anchor="w")
+        self.mine_list = tk.Listbox(
+            left,
+            height=18,
+            width=28,
+            activestyle="dotbox",
+            bg="#FAFBFA",
+            fg=C_INK,
+            highlightthickness=1,
+            highlightbackground=C_LINE,
+            selectbackground=C_ACCENT,
+            selectforeground="#FFFFFF",
+            font=("Segoe UI", 10),
+        )
+        self.mine_list.pack(fill=tk.Y, pady=6)
+        self.mine_list.bind("<<ListboxSelect>>", lambda e: self._on_mine_select())
+
+        btns = ttk.Frame(left, style="Card.TFrame")
+        btns.pack(fill=tk.X)
+        ttk.Button(btns, text="Новый", command=self._builder_new).pack(fill=tk.X, pady=2)
+        ttk.Button(btns, text="Изменить", command=self._builder_edit_selected).pack(fill=tk.X, pady=2)
+        ttk.Button(btns, text="Удалить", command=self._builder_delete).pack(fill=tk.X, pady=2)
+        ttk.Button(btns, text="Заполнить →", command=self._builder_use).pack(fill=tk.X, pady=2)
+
+        right = ttk.Frame(outer, style="Card.TFrame")
+        right.grid(row=0, column=1, sticky="nsew")
+        right.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            right,
+            text="Конструктор шаблона — задайте заголовок и поля, сохраните, потом заполняйте на вкладке «Шаблоны».",
+            style="Muted.TLabel",
+            wraplength=640,
+        ).grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+
+        self.b_title = tk.StringVar()
+        self.b_heading = tk.StringVar()
+        self.b_filename = tk.StringVar(value="Moy_shablon.docx")
+        self.b_desc = tk.StringVar()
+
+        ttk.Label(right, text="Название в списке", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Entry(right, textvariable=self.b_title, width=50).grid(row=1, column=1, columnspan=2, sticky="ew", pady=3)
+
+        ttk.Label(right, text="Заголовок в DOCX", style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=3)
+        ttk.Entry(right, textvariable=self.b_heading, width=50).grid(row=2, column=1, columnspan=2, sticky="ew", pady=3)
+
+        ttk.Label(right, text="Имя файла", style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=3)
+        ttk.Entry(right, textvariable=self.b_filename, width=50).grid(row=3, column=1, columnspan=2, sticky="ew", pady=3)
+
+        ttk.Label(right, text="Описание", style="Card.TLabel").grid(row=4, column=0, sticky="nw", pady=3)
+        ttk.Entry(right, textvariable=self.b_desc, width=50).grid(row=4, column=1, columnspan=2, sticky="ew", pady=3)
+
+        fields_box = ttk.LabelFrame(right, text=" Поля формы ", style="Card.TLabelframe", padding=8)
+        fields_box.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=10)
+        right.rowconfigure(5, weight=1)
+        fields_box.columnconfigure(0, weight=1)
+
+        hdr = ttk.Frame(fields_box, style="Card.TFrame")
+        hdr.pack(fill=tk.X)
+        for col, text, w in (
+            ("Подпись поля", 28),
+            ("Роль в документе", 18),
+            ("Многострочное", 12),
+            ("Значение по умолчанию", 24),
+        ):
+            ttk.Label(hdr, text=text, style="Muted.TLabel", width=w).pack(side=tk.LEFT, padx=2)
+
+        scroll_wrap = ttk.Frame(fields_box, style="Card.TFrame")
+        scroll_wrap.pack(fill=tk.BOTH, expand=True, pady=4)
+        self.fields_canvas = tk.Canvas(scroll_wrap, height=260, highlightthickness=0, bg=C_SURFACE)
+        fscroll = ttk.Scrollbar(scroll_wrap, orient=tk.VERTICAL, command=self.fields_canvas.yview)
+        self.fields_inner = ttk.Frame(self.fields_canvas, style="Card.TFrame")
+        self.fields_inner.bind(
+            "<Configure>", lambda e: self.fields_canvas.configure(scrollregion=self.fields_canvas.bbox("all"))
+        )
+        self.fields_canvas.create_window((0, 0), window=self.fields_inner, anchor="nw")
+        self.fields_canvas.configure(yscrollcommand=fscroll.set)
+        self.fields_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        fscroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        row_btns = ttk.Frame(fields_box, style="Card.TFrame")
+        row_btns.pack(fill=tk.X)
+        ttk.Button(row_btns, text="+ Поле", command=lambda: self._builder_add_field()).pack(side=tk.LEFT)
+        ttk.Button(row_btns, text="Шаблон: записка", command=self._builder_preset_zapiska).pack(side=tk.LEFT, padx=6)
+        ttk.Button(row_btns, text="Шаблон: отчёт", command=self._builder_preset_otchet).pack(side=tk.LEFT)
+
+        save_row = ttk.Frame(right, style="Card.TFrame")
+        save_row.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 0))
+        ttk.Button(save_row, text="Сохранить шаблон", style="Accent.TButton", command=self._builder_save).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(save_row, text="Очистить форму", command=self._builder_new).pack(side=tk.LEFT, padx=8)
+        self.b_status = ttk.Label(save_row, text="", style="Muted.TLabel")
+        self.b_status.pack(side=tk.LEFT, padx=8)
+
+        self._refresh_mine_list()
+        self._builder_new()
+
+    def _refresh_mine_list(self) -> None:
+        self.mine_list.delete(0, tk.END)
+        self._mine_ids: list[str] = []
+        for t in list_customs():
+            self.mine_list.insert(tk.END, t.title)
+            self._mine_ids.append(t.id)
+
+    def _selected_mine_id(self) -> str | None:
+        sel = self.mine_list.curselection()
+        if not sel:
+            return None
+        idx = int(sel[0])
+        if 0 <= idx < len(self._mine_ids):
+            return self._mine_ids[idx]
+        return None
+
+    def _on_mine_select(self) -> None:
+        tid = self._selected_mine_id()
+        if tid:
+            self._builder_load(tid)
+
+    def _builder_clear_fields_ui(self) -> None:
+        for child in self.fields_inner.winfo_children():
+            child.destroy()
+        self._builder_fields.clear()
+
+    def _builder_add_field(
+        self,
+        label: str = "",
+        role: str = ROLE_BODY,
+        multiline: bool = False,
+        default: str = "",
+    ) -> None:
+        row = ttk.Frame(self.fields_inner, style="Card.TFrame")
+        row.pack(fill=tk.X, pady=2)
+        label_var = tk.StringVar(value=label)
+        role_var = tk.StringVar(value=ROLE_LABELS.get(role, ROLE_LABELS[ROLE_BODY]))
+        multi_var = tk.BooleanVar(value=multiline)
+        default_var = tk.StringVar(value=default)
+
+        ttk.Entry(row, textvariable=label_var, width=28).pack(side=tk.LEFT, padx=2)
+        role_cb = ttk.Combobox(
+            row,
+            textvariable=role_var,
+            values=list(ROLE_LABELS.values()),
+            state="readonly",
+            width=18,
+        )
+        role_cb.pack(side=tk.LEFT, padx=2)
+        ttk.Checkbutton(row, variable=multi_var, text="да").pack(side=tk.LEFT, padx=8)
+        ttk.Entry(row, textvariable=default_var, width=24).pack(side=tk.LEFT, padx=2)
+
+        def _remove() -> None:
+            row.destroy()
+            self._builder_fields[:] = [f for f in self._builder_fields if f["frame"] is not row]
+
+        ttk.Button(row, text="×", width=3, command=_remove).pack(side=tk.LEFT, padx=4)
+
+        self._builder_fields.append(
+            {
+                "frame": row,
+                "label": label_var,
+                "role": role_var,
+                "multiline": multi_var,
+                "default": default_var,
+            }
+        )
+
+    def _role_key(self, label: str) -> str:
+        for k, v in ROLE_LABELS.items():
+            if v == label:
+                return k
+        return ROLE_BODY
+
+    def _builder_collect_fields(self) -> list[CustomField]:
+        used: set[str] = set()
+        out: list[CustomField] = []
+        from docfactory.custom_templates import _safe_key
+
+        for item in self._builder_fields:
+            label = item["label"].get().strip()
+            if not label:
+                continue
+            role = self._role_key(item["role"].get())
+            multi = bool(item["multiline"].get())
+            out.append(
+                CustomField(
+                    key=_safe_key(label, used),
+                    label=label,
+                    multiline=multi,
+                    default=item["default"].get(),
+                    role=role,
+                )
+            )
+        return out
+
+    def _builder_new(self) -> None:
+        self._edit_id = None
+        self.b_title.set("")
+        self.b_heading.set("")
+        self.b_filename.set("Moy_shablon.docx")
+        self.b_desc.set("")
+        self._builder_clear_fields_ui()
+        self._builder_add_field("Организация", ROLE_META, False, 'ГУ «Белгидромет»')
+        self._builder_add_field("Подразделение", ROLE_META, False, "Служба программного обеспечения")
+        self._builder_add_field("Дата", ROLE_META, False, "«____» ______________ 202__ г.")
+        self._builder_add_field("Содержание", ROLE_BODY, True, "")
+        self._builder_add_field("Исполнитель", ROLE_SIGNATURE, False, "")
+        self.b_status.configure(text="Новый шаблон (ещё не сохранён)")
+
+    def _builder_preset_zapiska(self) -> None:
+        self.b_title.set(self.b_title.get() or "Моя служебная записка")
+        self.b_heading.set(self.b_heading.get() or "СЛУЖЕБНАЯ ЗАПИСКА")
+        self.b_filename.set("Moya_sluzhebnaya_zapiska.docx")
+        self._builder_clear_fields_ui()
+        for label, role, multi, default in (
+            ("Организация", ROLE_META, False, 'ГУ «Белгидромет»'),
+            ("Кому", ROLE_META, False, ""),
+            ("От кого", ROLE_META, False, ""),
+            ("Дата", ROLE_META, False, "«____» ______________ 202__ г."),
+            ("Тема", ROLE_META, False, ""),
+            ("Текст", ROLE_BODY, True, ""),
+            ("Просьба", ROLE_BODY, True, ""),
+            ("Подпись", ROLE_SIGNATURE, False, ""),
+        ):
+            self._builder_add_field(label, role, multi, default)
+        self.b_status.configure(text="Пресет «записка» — сохраните, чтобы пользоваться")
+
+    def _builder_preset_otchet(self) -> None:
+        self.b_title.set(self.b_title.get() or "Мой отчёт")
+        self.b_heading.set(self.b_heading.get() or "ОТЧЁТ")
+        self.b_filename.set("Moy_otchet.docx")
+        self._builder_clear_fields_ui()
+        for label, role, multi, default in (
+            ("Организация", ROLE_META, False, 'ГУ «Белгидромет»'),
+            ("Подразделение", ROLE_META, False, "Служба программного обеспечения"),
+            ("ФИО", ROLE_META, False, ""),
+            ("Должность", ROLE_META, False, ""),
+            ("Период", ROLE_META, False, ""),
+            ("Дата", ROLE_META, False, "«____» ______________ 202__ г."),
+            ("Цель", ROLE_BODY, True, ""),
+            ("Выполнено", ROLE_BODY, True, ""),
+            ("Результаты", ROLE_BODY, True, ""),
+            ("Выводы", ROLE_BODY, True, ""),
+            ("Руководитель", ROLE_SIGNATURE, False, ""),
+            ("Исполнитель", ROLE_SIGNATURE, False, ""),
+        ):
+            self._builder_add_field(label, role, multi, default)
+        self.b_status.configure(text="Пресет «отчёт» — сохраните, чтобы пользоваться")
+
+    def _builder_load(self, template_id: str) -> None:
+        tmpl = load_custom(template_id)
+        if tmpl is None:
+            return
+        self._edit_id = tmpl.id
+        self.b_title.set(tmpl.title)
+        self.b_heading.set(tmpl.doc_heading or tmpl.title)
+        self.b_filename.set(tmpl.filename)
+        self.b_desc.set(tmpl.description)
+        self._builder_clear_fields_ui()
+        for f in tmpl.fields:
+            self._builder_add_field(f.label, f.role, f.multiline, f.default)
+        self.b_status.configure(text=f"Редактирование: {tmpl.id}")
+
+    def _builder_edit_selected(self) -> None:
+        tid = self._selected_mine_id()
+        if not tid:
+            messagebox.showinfo("Мои шаблоны", "Выберите шаблон слева.")
+            return
+        self._builder_load(tid)
+
+    def _builder_save(self) -> None:
+        title = self.b_title.get().strip()
+        if not title:
+            messagebox.showwarning("Сохранение", "Укажите название шаблона.")
+            return
+        fields = self._builder_collect_fields()
+        if not fields:
+            messagebox.showwarning("Сохранение", "Добавьте хотя бы одно поле.")
+            return
+        tmpl = CustomTemplate(
+            id=self._edit_id or new_template_id(),
+            title=title,
+            description=self.b_desc.get().strip(),
+            filename=(self.b_filename.get().strip() or "Moy_shablon.docx"),
+            doc_heading=self.b_heading.get().strip() or title,
+            fields=fields,
+        )
+        if not tmpl.filename.lower().endswith(".docx"):
+            tmpl.filename += ".docx"
+        try:
+            path = save_custom(tmpl)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Ошибка", str(exc))
+            return
+        self._edit_id = tmpl.id
+        self._refresh_mine_list()
+        self._refresh_catalog(select_id=tmpl.id)
+        # выделить в списке
+        if tmpl.id in self._mine_ids:
+            idx = self._mine_ids.index(tmpl.id)
+            self.mine_list.selection_clear(0, tk.END)
+            self.mine_list.selection_set(idx)
+            self.mine_list.see(idx)
+        self.b_status.configure(text=f"Сохранено: {path.name}")
+        messagebox.showinfo(
+            "Готово",
+            f"Шаблон «{tmpl.title}» сохранён.\nОн появился в списке на вкладке «Шаблоны» (категория «Мои шаблоны»).",
+        )
+
+    def _builder_delete(self) -> None:
+        tid = self._selected_mine_id() or self._edit_id
+        if not tid or not is_custom_id(tid):
+            messagebox.showinfo("Удаление", "Выберите сохранённый шаблон.")
+            return
+        tmpl = load_custom(tid)
+        name = tmpl.title if tmpl else tid
+        if not messagebox.askyesno("Удаление", f"Удалить шаблон «{name}»?"):
+            return
+        delete_custom(tid)
+        self._refresh_mine_list()
+        self._refresh_catalog(select_first=True)
+        self._builder_new()
+        self.b_status.configure(text="Шаблон удалён")
+
+    def _builder_use(self) -> None:
+        tid = self._selected_mine_id() or self._edit_id
+        if not tid or not is_custom_id(tid):
+            messagebox.showinfo("Заполнение", "Сначала сохраните и выберите шаблон.")
+            return
+        if load_custom(tid) is None:
+            messagebox.showwarning("Заполнение", "Шаблон не найден на диске. Сохраните его.")
+            return
+        self._refresh_catalog(select_id=tid)
+        messagebox.showinfo("Шаблоны", "Шаблон выбран на вкладке «Шаблоны» — заполните поля и нажмите «Сформировать DOCX».")
+
+    # ─── Конвертация ────────────────────────────────────────────────
 
     def _build_converter(self, parent: ttk.Frame) -> None:
         info = ttk.LabelFrame(parent, text=" Движки ", style="Card.TLabelframe", padding=12)

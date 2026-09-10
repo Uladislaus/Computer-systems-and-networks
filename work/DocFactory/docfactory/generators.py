@@ -38,6 +38,15 @@ def _split_rows(text: str, cols: int) -> list[list[str]]:
 def generate(doc_id: str, data: dict, out_dir: Path) -> Path:
     dtype = get_doc_type(doc_id)
     out_path = Path(out_dir) / dtype.filename
+    if doc_id.startswith("custom_"):
+        from docfactory.custom_templates import load_custom
+
+        tmpl = load_custom(doc_id)
+        if tmpl is None:
+            raise KeyError(doc_id)
+        doc = _custom_template(tmpl, data)
+        return save_doc(doc, out_path)
+
     generators = {
         "doklad_o_prodelannoy_rabote": _doklad_raboty,
         "otchet_zaversheniya_programmy": _otchet_zaversheniya,
@@ -64,6 +73,49 @@ def generate(doc_id: str, data: dict, out_dir: Path) -> Path:
     }
     doc = generators[doc_id](data)
     return save_doc(doc, out_path)
+
+
+def _custom_template(tmpl, data: dict):
+    """Универсальная вёрстка по ролям полей: шапка / разделы / подписи."""
+    from docfactory.custom_templates import ROLE_BODY, ROLE_META, ROLE_SIGNATURE
+
+    doc = new_document()
+    heading = (tmpl.doc_heading or tmpl.title or "Документ").strip()
+    add_title(doc, heading)
+
+    meta = [f for f in tmpl.fields if f.role == ROLE_META]
+    body = [f for f in tmpl.fields if f.role == ROLE_BODY]
+    sigs = [f for f in tmpl.fields if f.role == ROLE_SIGNATURE]
+    # поля без роли / устаревшие — в тело
+    known = {ROLE_META, ROLE_BODY, ROLE_SIGNATURE}
+    body.extend(f for f in tmpl.fields if f.role not in known)
+
+    if meta:
+        add_kv_table(doc, [(f.label, v(data, f.key)) for f in meta])
+
+    for i, f in enumerate(body, start=1):
+        add_heading(doc, f"{i}. {f.label}")
+        text = v(data, f.key, "")
+        lines = _lines(text)
+        if not lines:
+            add_para(doc, "________________")
+            continue
+        if any("|" in ln for ln in lines):
+            cols = max(len(ln.split("|")) for ln in lines)
+            rows = _split_rows(text, cols)
+            header = [c or f"Кол. {j+1}" for j, c in enumerate(rows[0])]
+            add_grid_table(doc, header, rows[1:] if len(rows) > 1 else [])
+        elif f.multiline and len(lines) > 1:
+            add_bullets(doc, lines)
+        else:
+            _fill_paras(doc, text, "________________")
+
+    if sigs:
+        add_signature_block(
+            doc,
+            [f"{f.label}: {v(data, f.key)}" for f in sigs],
+        )
+    return doc
 
 
 def _fill_paras(doc, text: str, placeholder: str) -> None:
