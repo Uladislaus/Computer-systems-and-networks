@@ -1,0 +1,56 @@
+name: Build DocFactory Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "work/DocFactory/**"
+      - ".github/workflows/build-docfactory-windows.yml"
+    branches:
+      - "cursor/doc-factory-offline-f67c"
+      - "main"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: work/DocFactory
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-build.txt
+
+      - name: Build EXE (PyInstaller)
+        run: pyinstaller --noconfirm DocFactory.spec
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compile installer
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\DocFactory.iss
+
+      - name: Upload DocFactory.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocFactory-exe
+          path: work/DocFactory/dist/DocFactory.exe
+
+      - name: Upload Setup installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocFactorySetup
+          path: work/DocFactory/installer/Output/DocFactorySetup.exe

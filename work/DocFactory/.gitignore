@@ -1,0 +1,4 @@
+output/*.docx
+.venv/
+__pycache__/
+*.pyc

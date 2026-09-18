@@ -1,0 +1,5 @@
+# Пользовательские шаблоны DocFactory (JSON).
+# Файлы custom_*.json создаются во вкладке «Мои шаблоны».
+*
+!.gitignore
+!.gitkeep
