@@ -11,6 +11,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+from docfactory.activity_cover import open_activity_cover
 from docfactory.catalog import full_catalog, get_doc_type
 from docfactory.convert import ConvertError, backend_status, convert_auto
 from docfactory.custom_templates import (
@@ -86,6 +87,10 @@ class DocFactoryApp(tk.Tk):
         self._build_converter(self.tab_conv)
         self._refresh_catalog(select_first=True)
 
+        self._cover = None
+        self.bind_all("<F12>", lambda e: self._toggle_activity_cover())
+        self.bind_all("<Control-Shift-H>", lambda e: self._toggle_activity_cover())
+
     def _setup_style(self) -> None:
         style = ttk.Style(self)
         try:
@@ -140,6 +145,19 @@ class DocFactoryApp(tk.Tk):
             foreground=C_MUTED,
             font=("Segoe UI", 10),
         ).pack(side=tk.LEFT, padx=12)
+        ttk.Button(head, text="Фокус F12", command=self._toggle_activity_cover).pack(side=tk.RIGHT)
+
+    def _toggle_activity_cover(self) -> None:
+        """Полноэкранная живая заставка разработки; F12 / Esc / Ctrl+Shift+H — выход."""
+        if self._cover is not None:
+            try:
+                if self._cover.winfo_exists():
+                    self._cover.dismiss()
+                    self._cover = None
+                    return
+            except tk.TclError:
+                self._cover = None
+        self._cover = open_activity_cover(self)
 
     # ─── Вкладка шаблонов ───────────────────────────────────────────
 
