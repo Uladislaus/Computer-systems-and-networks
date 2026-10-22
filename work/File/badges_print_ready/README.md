@@ -1,0 +1,27 @@
+# Значки в печать (финальный пакет)
+
+Одна папка — всё скачивать отсюда.
+
+## Скачать всё сразу
+ZIP ветки:
+https://github.com/Uladislaus/Computer-systems-and-networks/archive/refs/heads/cursor/badges-print-black-bg-f67c.zip
+
+После распаковки откройте:
+`work/File/badges_print_ready/`
+
+## Формат
+- PNG с альфой: снаружи круга прозрачность (как KOT)
+- кантик под макет (золото / серебро / тёмный металл)
+- портреты 05–08: серебро толщиной как исходное золото, картинка не сжата
+
+## Файлы
+01_stirochka_gotova.png
+02_omnomnom.png
+03_anime_pacany.png
+04_mandariny.png
+05_portret_bezh.png
+06_portret_ochki_solnce.png
+07_portret_sinie_glaza.png
+08_portret_ochki_pidzhak.png
+09_ruchnoe_navedenie.png
+10_spasibo_za_vnimanie.png
