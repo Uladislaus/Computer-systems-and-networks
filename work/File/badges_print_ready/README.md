@@ -25,3 +25,4 @@ https://github.com/Uladislaus/Computer-systems-and-networks/archive/refs/heads/c
 08_portret_ochki_pidzhak.png
 09_ruchnoe_navedenie.png
 10_spasibo_za_vnimanie.png
+11_hto_ya.png — мем «хто я?» (Чебурашка×Гена)
