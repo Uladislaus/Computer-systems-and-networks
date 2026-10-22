@@ -11,8 +11,9 @@ https://github.com/Uladislaus/Computer-systems-and-networks/archive/refs/heads/c
 
 ## Формат
 - PNG с альфой: снаружи круга прозрачность (как KOT)
-- кантик под макет (золото / серебро / тёмный металл)
-- портреты 05–08: серебро толщиной как исходное золото, картинка не сжата
+- один кантик под макет (золото / серебро / тёмный металл) — без второго обода
+- картинка не сжата: арт заполняет поле до кантика
+- 12–21: исходники `print-56mm` (1371×1371, 600 dpi, 56 мм + 1 мм bleed)
 
 ## Файлы
 01_stirochka_gotova.png
@@ -27,14 +28,14 @@ https://github.com/Uladislaus/Computer-systems-and-networks/archive/refs/heads/c
 10_spasibo_za_vnimanie.png
 11_hto_ya.png — мем «хто я?» (Чебурашка×Гена)
 
-12_posledniy_samuray.png
-13_pobeg_iz_shoushenka.png
-14_krestnyy_otets.png
-15_boytsovskiy_klub.png
-16_kto_sdokh_tot_lokh.png
-17_begushchiy_po_lezviyu.png
-18_vlastelin_povestki.png
-19_kolobok.png
-20_vlastelin_povestki_volat.png
-21_brilliantovaya_ruka.png
-
+### Медали 12–21 (оригинальный цвет кантика)
+12_posledniy_samuray.png — золото
+13_pobeg_iz_shoushenka.png — железо/серый
+14_krestnyy_otets.png — золото
+15_boytsovskiy_klub.png — серебро
+16_kto_sdokh_tot_lokh.png — серебро
+17_begushchiy_po_lezviyu.png — серебро
+18_vlastelin_povestki.png — золото
+19_kolobok.png — золото
+20_vlastelin_povestki_volat.png — золото
+21_brilliantovaya_ruka.png — золото
