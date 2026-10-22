@@ -26,3 +26,15 @@ https://github.com/Uladislaus/Computer-systems-and-networks/archive/refs/heads/c
 09_ruchnoe_navedenie.png
 10_spasibo_za_vnimanie.png
 11_hto_ya.png — мем «хто я?» (Чебурашка×Гена)
+
+12_posledniy_samuray.png
+13_pobeg_iz_shoushenka.png
+14_krestnyy_otets.png
+15_boytsovskiy_klub.png
+16_kto_sdokh_tot_lokh.png
+17_begushchiy_po_lezviyu.png
+18_vlastelin_povestki.png
+19_kolobok.png
+20_vlastelin_povestki_volat.png
+21_brilliantovaya_ruka.png
+
