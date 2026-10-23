@@ -29,3 +29,24 @@ https://github.com/Uladislaus/Computer-systems-and-networks/raw/cursor/badges-pr
 | `10-povestka-volat.png` | Волат / МЗКТ | 2-й |
 | `11-povestka-farnell.png` | Фарнелл | 3-й |
 | `12-povestka-teploset.png` | теплосеть | 4-й справа |
+
+## Портреты / мемы / коты (ободок под картинку)
+| Файл | Надпись |
+|------|---------|
+| `14-schastie.png` | Когда жизнь даёт тебе счастье |
+| `15-ya-banan.png` | Я банан |
+| `22-idushchiy-v-reke.png` | Идущий в реке |
+| `23-vnimanie.png` | Внимание — спасибо за внимание!) |
+| `24-ruchnoe-navedenie.png` | Ручное наведение |
+| `25-chelovek-pizdyozh.png` | Человек-пиздёж |
+| `26-kotik.png` | (кот снизу, без текста) |
+| `27-chego-ulybaeshsya.png` | Чего улыбаешься?) |
+| `34-na-otchizne.png` | На отчизне |
+| `35-omnomnom.png` | Омномном |
+| `36-a-gde.png` | А где |
+| `37-kot.png` | KOT |
+| `38-marsel.png` | Марсель |
+| `39-stirochka.png` | Стирочка готова |
+| `41-my.png` | Мы |
+
+Повторы из раннего пакета (обновлены из тех же макетов): `01_stirochka_gotova`, `02_omnomnom`, `09_ruchnoe_navedenie`, `10_spasibo_za_vnimanie`.
