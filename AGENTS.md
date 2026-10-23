@@ -1,13 +1,21 @@
-# Agent notes — Computer-systems-and-networks
+# Agent notes
 
-## Значки в печать (badges)
+## Badge Factory (portable)
 
-Если скинули картинку и сказали по сути только «значок» / «медалька» / «в печать» —
-это **полный неявный бриф**, не просьба угадать имя файла. Сразу читай:
+Мы собрали **переносимую фабрику значков**. Источник правды:
 
-- `.cursor/skills/badges-print/SKILL.md` — чего хочет пользователь и как делать
-- `.cursor/skills/badges-print/badge-catalog.json` — помочь узнать сюжет, если уже делали
+- `badge-factory/README.md` — как поставить в любой проект / user skills
+- `badge-factory/SKILL.md` + `PLAYBOOK.md` — бриф и план цеха
+- `badge-factory/scripts/assemble_badge.py` — сборка 1371 + ободок
 
-Смысл: круглая печатная медалька, один металлический ободок под картинку,
-1371×1371, прозрачность снаружи, в `work/File/badges_print_ready/` + `badges.zip`
-(ветка `cursor/badges-print-black-bg-f67c`). Имена — вторичны.
+Копия skill для Cursor в этом репо: `.cursor/skills/badge-factory/`.
+
+Если скинули картинку и сказали «значок» — это полный неявный бриф фабрики
+(круг, один металлический ободок под сцену, 1371, прозрачность). Не квиз про имена.
+
+## Выход цеха в ЭТОМ репозитории
+
+- Папка: `work/File/badges_print_ready/`
+- Zip: `badges.zip` там же
+- Каталог уже сделанных сюжетов: `.cursor/skills/badges-print/badge-catalog.json`
+- Ветка: `cursor/badges-print-black-bg-f67c`

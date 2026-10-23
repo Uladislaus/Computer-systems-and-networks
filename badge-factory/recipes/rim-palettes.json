@@ -1,0 +1,67 @@
+{
+  "notes": "Stops are 0=outer edge .. 1=inner edge of the rim annulus. RGB 0-255.",
+  "palettes": {
+    "gold_wide": {
+      "use_when": "Night portraits, drama, most cats/memes",
+      "default_inner_frac": 0.875,
+      "stops": [
+        [0.00, [70, 45, 10]],
+        [0.12, [155, 110, 32]],
+        [0.30, [225, 180, 75]],
+        [0.45, [250, 220, 125]],
+        [0.58, [215, 165, 60]],
+        [0.75, [160, 115, 35]],
+        [1.00, [55, 35, 8]]
+      ]
+    },
+    "rose_romantic": {
+      "use_when": "Couples, happiness, soft portraits",
+      "default_inner_frac": 0.87,
+      "stops": [
+        [0.00, [75, 40, 38]],
+        [0.12, [150, 95, 75]],
+        [0.30, [210, 145, 120]],
+        [0.48, [255, 230, 205]],
+        [0.65, [225, 160, 130]],
+        [0.85, [165, 100, 80]],
+        [1.00, [70, 40, 35]]
+      ]
+    },
+    "olive_bronze": {
+      "use_when": "Military/tech gear, autumn khaki scenes",
+      "default_inner_frac": 0.90,
+      "stops": [
+        [0.00, [28, 26, 16]],
+        [0.15, [55, 50, 32]],
+        [0.35, [90, 80, 52]],
+        [0.50, [125, 112, 75]],
+        [0.70, [88, 78, 48]],
+        [1.00, [30, 28, 16]]
+      ]
+    },
+    "gunmetal": {
+      "use_when": "Black background, high-contrast character",
+      "default_inner_frac": 0.90,
+      "stops": [
+        [0.00, [18, 18, 20]],
+        [0.20, [48, 48, 52]],
+        [0.45, [110, 110, 118]],
+        [0.60, [160, 160, 168]],
+        [0.80, [70, 70, 76]],
+        [1.00, [22, 22, 24]]
+      ]
+    },
+    "silver_chrome": {
+      "use_when": "Sci-fi, blade metal; do not strip pale pixels in post",
+      "default_inner_frac": 0.90,
+      "stops": [
+        [0.00, [60, 62, 68]],
+        [0.15, [120, 124, 132]],
+        [0.35, [200, 205, 212]],
+        [0.50, [240, 242, 245]],
+        [0.70, [170, 175, 182]],
+        [1.00, [70, 74, 80]]
+      ]
+    }
+  }
+}
