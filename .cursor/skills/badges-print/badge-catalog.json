@@ -1,0 +1,295 @@
+{
+  "pack_dir": "work/File/badges_print_ready",
+  "zip": "work/File/badges_print_ready/badges.zip",
+  "branch": "cursor/badges-print-black-bg-f67c",
+  "print": { "size_px": 1371, "diameter_mm": 56, "bleed_mm": 1 },
+  "badges": [
+    {
+      "id": "01-samurai",
+      "files": ["01-samurai.png", "12_posledniy_samuray.png"],
+      "text": ["ПОСЛЕДНИЙ САМУРАЙ"],
+      "visual_cues": ["samurai", "red-black", "katana", "Belhydromet logo"],
+      "rim": "dark metal / scene-matched",
+      "status": "final-film"
+    },
+    {
+      "id": "02-shawshank",
+      "files": ["02-shawshank.png", "13_pobeg_iz_shoushenka.png"],
+      "text": ["ПОБЕГ ИЗ ШОУШЕНКА"],
+      "visual_cues": ["rain", "prison", "large Belhydromet logo", "iron rim"],
+      "rim": "iron",
+      "status": "final-film",
+      "notes": "Logo building must stay large and pure white"
+    },
+    {
+      "id": "03-godfather",
+      "files": ["03-godfather.png", "14_krestnyy_otets.png"],
+      "text": ["КРЁСТНЫЙ ВОЖДЬ", "КРЕСТНЫЙ ВОЖДЬ"],
+      "text_aliases": ["крёстный отец → вождь"],
+      "visual_cues": ["rose", "hand", "purple velvet", "single Belarus map"],
+      "rim": "single metal, purple scene",
+      "status": "final-film",
+      "notes": "Never nest map inside map; not red-black like samurai"
+    },
+    {
+      "id": "04-fightclub",
+      "files": ["04-fightclub.png", "15_boytsovskiy_klub.png"],
+      "text": ["БОЙЦОВСКИЙ КЛУБ"],
+      "visual_cues": ["pink soap capybara", "boxing gloves"],
+      "rim": "scene-matched",
+      "status": "final-film"
+    },
+    {
+      "id": "05-loh",
+      "files": ["05-loh.png", "16_kto_sdokh_tot_lokh.png"],
+      "text": ["КТО СДОХ — ТОТ ЛОХ", "КТО СДОХ ТОТ ЛОХ"],
+      "visual_cues": ["comic stripes", "pig", "dead red Angry Birds bird with X eyes"],
+      "rim": "scene-matched",
+      "status": "final-film"
+    },
+    {
+      "id": "06-diamond",
+      "files": ["06-diamond.png", "21_brilliantovaya_ruka.png"],
+      "text": ["БРИЛЛИАНТОВАЯ РУКА"],
+      "visual_cues": ["arm cast", "soviet comedy"],
+      "rim": "scene-matched",
+      "status": "final-film"
+    },
+    {
+      "id": "07-bladerunner",
+      "files": ["07-bladerunner.png", "17_begushchiy_po_lezviyu.png"],
+      "text": ["БЕГУЩИЙ ПО ЛЕЗВИЮ", "FK"],
+      "visual_cues": ["chrome knife", "FK engraved in blade metal"],
+      "rim": "bright silver",
+      "status": "final-film",
+      "notes": "FK must be in metal, not flat white overlay"
+    },
+    {
+      "id": "09-kolobok",
+      "files": ["09-kolobok.png", "19_kolobok.png"],
+      "text": ["КОЛОБОК"],
+      "visual_cues": ["round bun character"],
+      "rim": "scene-matched",
+      "status": "final-film"
+    },
+    {
+      "id": "08-povestka-belhydromet",
+      "files": ["08-povestka-belhydromet.png", "18_vlastelin_povestki.png"],
+      "text": ["ВЛАСТЕЛИН ПОВЕСТКИ"],
+      "visual_cues": ["One Ring", "sealed letter", "4 nazgul", "Belhydromet map glow", "1st silhouette silver"],
+      "rim": "metal matched to Belhydromet cyan",
+      "status": "final-povestka",
+      "series": "povestka",
+      "silver_index": 1
+    },
+    {
+      "id": "10-povestka-volat",
+      "files": ["10-povestka-volat.png", "20_vlastelin_povestki_volat.png"],
+      "text": ["ВЛАСТЕЛИН ПОВЕСТКИ"],
+      "visual_cues": ["Volat/MZKT logo", "2nd nazgul silver", "wine-copper rim"],
+      "rim": "wine-copper",
+      "status": "final-povestka",
+      "series": "povestka",
+      "silver_index": 2
+    },
+    {
+      "id": "11-povestka-farnell",
+      "files": ["11-povestka-farnell.png"],
+      "text": ["ВЛАСТЕЛИН ПОВЕСТКИ"],
+      "visual_cues": ["Farnell logo", "3rd nazgul silver", "silver rim"],
+      "rim": "silver — do not blacken left edge in post",
+      "status": "final-povestka",
+      "series": "povestka",
+      "silver_index": 3
+    },
+    {
+      "id": "12-povestka-teploset",
+      "files": ["12-povestka-teploset.png"],
+      "text": ["ВЛАСТЕЛИН ПОВЕСТКИ"],
+      "visual_cues": ["teploset / heat network logo", "4th nazgul silver", "gunmetal rim"],
+      "rim": "gunmetal",
+      "status": "final-povestka",
+      "series": "povestka",
+      "silver_index": 4
+    },
+    {
+      "id": "anime-pacany",
+      "files": ["03_anime_pacany.png"],
+      "text": ["НУ ЧТО", "АНИМЕ", "ПАЦАНЫ"],
+      "visual_cues": ["anime boys", "meme"],
+      "rim": "portrait-style metal",
+      "status": "early-pack"
+    },
+    {
+      "id": "mandariny",
+      "files": ["04_mandariny.png"],
+      "text": ["МАНДАРИНЫ"],
+      "visual_cues": ["tangerines", "oranges fruit"],
+      "rim": "portrait-style metal",
+      "status": "early-pack"
+    },
+    {
+      "id": "portret-bezh",
+      "files": ["05_portret_bezh.png"],
+      "text": [],
+      "visual_cues": ["portrait beige background"],
+      "rim": "gold/silver portrait bezel",
+      "status": "early-pack"
+    },
+    {
+      "id": "portret-ochki-solnce",
+      "files": ["06_portret_ochki_solnce.png"],
+      "text": [],
+      "visual_cues": ["portrait sunglasses"],
+      "rim": "gold/silver portrait bezel",
+      "status": "early-pack"
+    },
+    {
+      "id": "portret-sinie-glaza",
+      "files": ["07_portret_sinie_glaza.png"],
+      "text": [],
+      "visual_cues": ["portrait blue eyes"],
+      "rim": "gold/silver portrait bezel",
+      "status": "early-pack"
+    },
+    {
+      "id": "portret-ochki-pidzhak",
+      "files": ["08_portret_ochki_pidzhak.png"],
+      "text": [],
+      "visual_cues": ["portrait glasses blazer"],
+      "rim": "gold/silver portrait bezel",
+      "status": "early-pack"
+    },
+    {
+      "id": "hto-ya",
+      "files": ["11_hto_ya.png"],
+      "text": ["ХТО Я", "КТО Я"],
+      "visual_cues": ["who am I meme"],
+      "rim": "portrait-style metal",
+      "status": "early-pack"
+    },
+    {
+      "id": "14-schastie",
+      "files": ["14-schastie.png"],
+      "text": ["КОГДА ЖИЗНЬ ДАЁТ ТЕБЕ СЧАСТЬЕ"],
+      "visual_cues": ["couple", "chandeliers", "pearls"],
+      "rim": "romantic rose-gold",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "15-ya-banan",
+      "files": ["15-ya-banan.png"],
+      "text": ["Я БАНАН"],
+      "visual_cues": ["anthropomorphic banana", "black background"],
+      "rim": "dark gunmetal",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "22-idushchiy-v-reke",
+      "files": ["22-idushchiy-v-reke.png"],
+      "text": ["ИДУЩИЙ В РЕКЕ"],
+      "visual_cues": ["man from behind", "night river", "blazer bag"],
+      "rim": "wide bright gold",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "23-vnimanie",
+      "files": ["23-vnimanie.png", "10_spasibo_za_vnimanie.png"],
+      "text": ["ВНИМАНИЕ — СПАСИБО ЗА ВНИМАНИЕ!)", "СПАСИБО ЗА ВНИМАНИЕ"],
+      "visual_cues": ["arms wide", "night park", "blonde glasses"],
+      "rim": "bronze / dark metal",
+      "status": "portrait-meme",
+      "notes": "Duplicate of early 10_spasibo_za_vnimanie"
+    },
+    {
+      "id": "24-ruchnoe-navedenie",
+      "files": ["24-ruchnoe-navedenie.png", "09_ruchnoe_navedenie.png"],
+      "text": ["РУЧНОЕ НАВЕДЕНИЕ"],
+      "visual_cues": ["AA gun / theodolite", "sunglasses", "autumn trees"],
+      "rim": "thick olive-bronze like early pack — not thin bright gold",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "25-chelovek-pizdyozh",
+      "files": ["25-chelovek-pizdyozh.png"],
+      "text": ["ЧЕЛОВЕК-ПИЗДЁЖ"],
+      "visual_cues": ["rock hands", "helix from mouth", "night waterfront"],
+      "rim": "wide bright gold",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "26-kotik",
+      "files": ["26-kotik.png"],
+      "text": [],
+      "visual_cues": ["cat from below through glass", "belly and paws", "no text"],
+      "rim": "gold",
+      "status": "cat"
+    },
+    {
+      "id": "27-chego-ulybaeshsya",
+      "files": ["27-chego-ulybaeshsya.png"],
+      "text": ["ЧЕГО УЛЫБАЕШЬСЯ?)", "ЧЕГО УЛЫБАЕШЬСЯ"],
+      "visual_cues": ["couple illustration", "plaid scarf", "beige wall"],
+      "rim": "romantic rose-gold",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "34-na-otchizne",
+      "files": ["34-na-otchizne.png"],
+      "text": ["НА ОТЧИЗНЕ"],
+      "visual_cues": ["couple sunglasses", "blue-yellow building"],
+      "rim": "gold",
+      "status": "portrait-meme"
+    },
+    {
+      "id": "35-omnomnom",
+      "files": ["35-omnomnom.png", "02_omnomnom.png"],
+      "text": ["ОМНОМНОМ"],
+      "visual_cues": ["grey cat licking paw", "butterfly furniture"],
+      "rim": "gold",
+      "status": "cat",
+      "notes": "Duplicate pair legacy/TZ"
+    },
+    {
+      "id": "36-a-gde",
+      "files": ["36-a-gde.png"],
+      "text": ["А ГДЕ"],
+      "visual_cues": ["cat rear under cabinet", "tail up"],
+      "rim": "gold",
+      "status": "cat"
+    },
+    {
+      "id": "37-kot",
+      "files": ["37-kot.png"],
+      "text": ["KOT", "КОТ"],
+      "visual_cues": ["grey cat on shag rug"],
+      "rim": "gold",
+      "status": "cat"
+    },
+    {
+      "id": "38-marsel",
+      "files": ["38-marsel.png"],
+      "text": ["МАРСЕЛЬ"],
+      "visual_cues": ["grey cat peeking lace curtain / wood"],
+      "rim": "gold",
+      "status": "cat"
+    },
+    {
+      "id": "39-stirochka",
+      "files": ["39-stirochka.png", "01_stirochka_gotova.png"],
+      "text": ["СТИРОЧКА ГОТОВА"],
+      "visual_cues": ["cat in washing machine drum"],
+      "rim": "gold",
+      "status": "cat",
+      "notes": "Duplicate pair legacy/TZ"
+    },
+    {
+      "id": "41-my",
+      "files": ["41-my.png"],
+      "text": ["МЫ"],
+      "visual_cues": ["couple mirror selfie", "cafe", "phone"],
+      "rim": "gold",
+      "status": "portrait-meme"
+    }
+  ]
+}
