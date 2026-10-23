@@ -1,0 +1,21 @@
+{
+  "badge_hard_rules": [
+    "circular enamel pin / metal badge, perfectly round",
+    "ONE single metallic beveled tubular rim matching the scene palette",
+    "NO second outer contour, NO white double rim, NO rectangular card frame",
+    "NO nested duplicate logos or maps inside maps",
+    "artwork fills the circle; do not artificially shrink the scene with empty margins",
+    "outside the circle: pure white or transparent background only",
+    "any text is arched along the inner rim and painted into the artwork (not a flat sticker overlay)",
+    "high-resolution print-ready look, sharp details"
+  ],
+  "rim_hints": {
+    "gold_wide": "thick polished bright gold tubular metal rim",
+    "rose_romantic": "thick romantic rose-gold and champagne tubular metal rim, single layer, no pink glow halo",
+    "olive_bronze": "thick dark olive-bronze gunmetal rim matching khaki/tech gear",
+    "gunmetal": "thick dark gunmetal rim for black backgrounds",
+    "silver_chrome": "thick bright chrome-silver rim with clean highlights, do not muddy the metal"
+  },
+  "aspect_ratio": "1:1",
+  "assemble_default": true
+}
