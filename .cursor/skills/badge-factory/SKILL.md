@@ -1,72 +1,79 @@
 ---
 name: badge-factory
 description: >-
-  Portable circular pin/badge factory. When the user drops any image and says
-  «значок», «медалька», «badge», «в печать», or asks for a rim/ободок — run the
-  full print-badge pipeline from this kit (not a filename quiz). Works in any
-  repo or chat once this skill is available. Output: 1371×1371 PNG, one metal
-  rim matched to the art, transparent outside the circle.
+  Portable badge + image factory with generation. When the user drops a picture
+  and says «значок»/«медалька», OR asks to generate/regenerate a badge or any
+  image from a brief — use this kit: prompt_engine → GenerateImage (or OpenAI/
+  HTTP backend) → assemble_badge. Works in any repo once installed.
 ---
 
-# Badge Factory — portable skill
+# Badge Factory — portable skill (с генерацией)
 
-Этот skill **не про имена файлов в одном репо**. Это цех: из картинки сделать
-печатный круглый значок так, как мы научились в длинном диалоге.
+Читай `PLAYBOOK.md`. Рецепты: `recipes/`. Скрипты: `scripts/`.
 
-Читай `PLAYBOOK.md` рядом. Палитры: `recipes/rim-palettes.json`.
-Скрипт сборки: `scripts/assemble_badge.py`.
+## Генерация (обязательный контур)
+
+Когда нужен **новый** или **перегенерированный** кадр:
+
+1. Собери job через CLI (промпт уже с нашими hard-rules):
+   ```bash
+   python scripts/factory.py pipeline \
+     --brief "..." --text "НАДПИСЬ" --rim gold_wide \
+     -o out/badge.png --backend cursor
+   ```
+   Exit code `3` + файл `jobs/last_generate_job.json` = норма: локальной модели нет.
+
+2. **Ты (агент Cursor)** сразу вызываешь tool `GenerateImage` с полями из job:
+   - `description` ← `job["description"]` (не сочиняй заново слабый промпт)
+   - `aspect_ratio` ← `job["aspect_ratio"]` (обычно `1:1`)
+   - `reference_image_paths` ← `job["reference_image_paths"]` если не пусто
+   - `filename` ← basename выхода
+
+3. Прогони сборку:
+   ```bash
+   python scripts/assemble_badge.py GENERATED.png -o out/badge.png --rim gold_wide
+   ```
+   (rim можно опустить, если металл уже идеален в кадре)
+
+4. QC из PLAYBOOK → отдай файл.
+
+### Любая картинка «как скажу» (не только значок)
+
+```bash
+python scripts/generate_badge.py \
+  --brief "что нарисовать" --freeform \
+  -o out/image.png --backend cursor
+```
+Потом `GenerateImage` по job; `--freeform` **не** навязывает badge-shell и не assemble.
+
+### Локальные API (без Cursor tool)
+
+```bash
+export OPENAI_API_KEY=...
+python scripts/generate_badge.py --brief "..." --text "..." --rim gold_wide \
+  -o out/badge.png --backend openai
+
+# или свой шлюз:
+export BADGE_GEN_URL=https://...
+python scripts/generate_badge.py --brief "..." -o out/badge.png --backend http
+```
 
 ## Неявный бриф (картинка + «значок»)
 
-Не переспрашивай ТЗ с нуля. Подразумевается:
+1. Круглая металлическая медалька под печать.
+2. Один объёмный ободок под настроение кадра.
+3. `1371×1371` PNG, прозрачность снаружи.
+4. Не ужимать арт, не двойной кантик, не плоский белый текст-наклейка.
+5. Шире ободок → inset всей композиции, rim снаружи.
+6. Реген сюжета → контур генерации выше, не «дорисовать в PIL».
 
-1. Круглая **металлическая медалька** под печать (не квадратный стикер «как есть»).
-2. **Один** объёмный металлический ободок, подобранный под палитру/настроение кадра.
-3. Размер **1371×1371** PNG RGBA (≈56 мм + 1 мм bleed @ 600 dpi), если пользователь
-   не задал другой диаметр.
-4. Снаружи круга — **прозрачность**.
-5. Арт **не корежить**: не ужимать «для красоты», не резать сюжет ободком,
-   не делать второй кантик, не клеить плоский белый текст поверх.
-6. Если ободок нужно **сделать шире** — слегка уменьшить весь круг и рисовать
-   металл снаружи (сюжет сохранить целиком).
-7. Отдать файл + коротко по-русски что сделал; при работе в git-проекте —
-   положить туда, куда принят выход цеха (спроси только если папки нет).
-
-## Как читать любую сброшенную картинку
-
-| Видишь | Делаешь |
-|--------|---------|
-| Уже круг + ободок | Довести до 1371 + alpha; починить/усилить ободок если тонкий или битый |
-| Квадрат/фото без круга | Собрать значок: круг, ободок под палитру; текст — только если есть на рефе или в просьбе |
-| Романтика / пара | Rose-gold / champagne, один tubular rim |
-| Ночь у воды / драматичный портрет | Широкий яркий gold |
-| Чёрный фон + яркий персонаж | Gunmetal / тёмный металл |
-| Техника / хаки / осень | Оливково-бронзовый |
-| «Дорогой» хром / sci-fi | Светлое серебро; не выедать pale fringe при чистке |
-| Логотип компании в серии | Ободок в тон лого (темнее или светлее металла фона) |
-| Нужна генерация с нуля | GenerateImage / реген по PLAYBOOK; текст и металл **в кадре**, не PIL-наклейка |
-
-## Жёсткие запреты
-
-- Два кантика, белый внешний контур, «карточка» с прямоугольной рамкой.
-- Вложенные логотипы/карты друг в друга.
-- Затемнять то, что должно быть чисто белым (если бренд так задан).
-- Пост-процесс, который съедает светлый металлический край.
-- «Улучшать» уже принятый пользователем финал без просьбы.
-- Притворяться, что уменьшенный арт «с полями» = тот же макет.
-
-## Сборка (минимум)
+## Сборка без регена
 
 ```bash
 python scripts/assemble_badge.py INPUT.png -o OUT.png
-# шире ободок + палитра из recipes:
 python scripts/assemble_badge.py INPUT.png -o OUT.png --rim gold_wide --inner 0.875
 ```
 
-QC: углы transparent; по радиусу нет дырки между rim и артом; один ободок;
-превью на тёмном фоне.
+## Ответ
 
-## Ответ пользователю
-
-Коротко: что понял по картинке → какой ободок выбрал → файл готов.
-Без лекции про имена, если не спросили.
+Коротко: brief → backend/tool → файл. Если сработал `cursor`-backend — не останавливайся на job JSON, добей GenerateImage + assemble в том же ходе.

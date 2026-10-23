@@ -1,44 +1,64 @@
-# Badge Factory — переносимая фабрика значков
+# Badge Factory — переносимая фабрика значков (+ генерация)
 
-Самодостаточный kit из диалога про печатные круглые медальки.
-**Не привязан к одному репозиторию.** Скопируй папку куда угодно.
+Самодостаточный kit: **промпт → генерация → сборка 1371**.
+Не привязан к одному репозиторию.
 
-## Куда поставить, чтобы агент умел везде
+## Установка
 
-### Вариант A — в любой проект Cursor
 ```bash
-cp -R badge-factory <твой-проект>/.cursor/skills/badge-factory
-```
-В корне проекта можно добавить в `AGENTS.md`:
-```markdown
-## Badge factory
-При картинке + «значок» читай `.cursor/skills/badge-factory/SKILL.md`.
+cp -R badge-factory <проект>/.cursor/skills/badge-factory
+# или user skills:
+# cp -R badge-factory ~/.cursor/skills/badge-factory
 ```
 
-### Вариант B — личные skills Cursor (на машине)
-Скопируй содержимое в user skills (путь зависит от установки Cursor), например:
+## Быстрый старт
+
+### Агент Cursor (рекомендуется)
 ```bash
-cp -R badge-factory/* ~/.cursor/skills/badge-factory/
+python scripts/factory.py pipeline \
+  --brief "рыжий кот в стиральной машине, мемный значок" \
+  --text "СТИРОЧКА ГОТОВА" \
+  --rim gold_wide \
+  -o out/stirochka.png \
+  --backend cursor
 ```
-После этого skill подхватывается и вне этого git-репо.
+Агент читает `jobs/last_generate_job.json` → tool `GenerateImage` → `assemble_badge.py`.
 
-### Вариант C — просто приложить в чат
-Прикрепи `SKILL.md` + `PLAYBOOK.md` к новому агенту / чату и напиши:
-«работаем по badge factory».
+### OpenAI ключ (CLI без Cursor tool)
+```bash
+export OPENAI_API_KEY=sk-...
+python scripts/generate_badge.py \
+  --brief "..." --text "..." --rim gold_wide \
+  -o out/badge.png --backend openai
+```
+
+### Только сборка готовой картинки
+```bash
+python scripts/assemble_badge.py photo.png -o badge.png --rim gold_wide
+```
+
+### Любая картинка «как скажу»
+```bash
+python scripts/generate_badge.py --brief "описание" --freeform \
+  -o out/art.png --backend cursor   # или openai / http
+```
 
 ## Состав
 
-| Файл | Зачем |
+| Путь | Зачем |
 |------|--------|
-| `SKILL.md` | Неявный бриф: картинка + «значок» → полный цикл |
-| `PLAYBOOK.md` | План цеха: intake → макет → ободок → QC → выдача |
-| `recipes/rim-palettes.json` | Палитры ободков под настроение |
-| `scripts/assemble_badge.py` | Сборка: круг 1371, alpha, опционально широкий rim |
-| `examples/` | (опционально) твои референсы |
+| `SKILL.md` | Бриф для агента + контур генерации |
+| `PLAYBOOK.md` | План цеха |
+| `recipes/gen_shell.json` | Hard-rules промпта значка |
+| `recipes/rim-palettes.json` | Палитры ободков |
+| `scripts/prompt_engine.py` | Сборщик промптов |
+| `scripts/generate_badge.py` | Генерация (cursor/openai/http) |
+| `scripts/assemble_badge.py` | Круг + alpha + rim |
+| `scripts/factory.py` | Единый CLI |
+| `jobs/` | last_generate_job.json / last_prompt.json |
 
-## Минимальный заказ агенту
+## Честно про качество
 
-> вот картинка, сделай значок
-
-Агент должен: понять сцену → один металлический ободок под неё → 1371 PNG
-с прозрачностью снаружи → положить в указанную папку / отдать файл.
+- **Промпт + правила** — уровень нашего диалога (зашиты в factory).
+- **Картинку рисует** backend: Cursor `GenerateImage`, OpenAI Images, или твой HTTP.
+- Без ключа / без агента CLI **сам не рисует** — отдаёт job для генератора.

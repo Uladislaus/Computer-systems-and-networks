@@ -8,9 +8,10 @@
 1. INTAKE     → принять картинку + короткую фразу
 2. READ       → понять сцену, текст, настроение, нужен ли реген
 3. LAYOUT     → круг, текст на дуге, один ободок, без мусора
-4. ASSEMBLE   → 1371, alpha, rim (скрипт или генерация)
-5. QC         → чеклист ниже
-6. DELIVER    → файл / папка / zip — куда принято в этом чате
+4. GENERATE   → (если нужен новый кадр) prompt_engine → backend/GenerateImage
+5. ASSEMBLE   → 1371, alpha, optional rim
+6. QC         → чеклист ниже
+7. DELIVER    → файл / папка / zip — куда принято в этом чате
 ```
 
 ### 1. Intake
@@ -68,7 +69,37 @@
 - 4 силуэта, **один серебряный** на экземпляр по очереди;
 - фон = логотип компании; ободок в тон фону.
 
-### 4. Assemble
+### 4. Generate (если кадр нужно создать / перерисовать)
+
+```bash
+python scripts/factory.py pipeline \
+  --brief "сюжет своими словами" \
+  --text "ТЕКСТ НА ДУГЕ" \
+  --rim gold_wide \
+  -o out/badge.png \
+  --backend cursor
+```
+
+Бэкенды:
+
+| backend | Что делает |
+|---------|------------|
+| `cursor` | Пишет `jobs/last_generate_job.json`, exit 3 → агент зовёт `GenerateImage` |
+| `openai` | `OPENAI_API_KEY` → Images API, потом assemble |
+| `http` | `BADGE_GEN_URL` (+ опц. `BADGE_GEN_TOKEN`) |
+| `prompt` | Только текст промпта / JSON |
+
+Freeform (любая картинка, не значок):
+
+```bash
+python scripts/generate_badge.py --brief "..." --freeform -o out.png --backend cursor
+```
+
+Промпт для badge-режима всегда включает hard-rules из `recipes/gen_shell.json`
+(один ободок, без double rim, текст вшит в арт, …). **Не подменяй** его коротким
+самодельным промптом, если уже есть job.
+
+### 5. Assemble
 
 **A. Готовый круглый арт** → `scripts/assemble_badge.py`:
 
@@ -91,7 +122,7 @@
 3. Нарисовать rim в кольце `[inner_frac .. 0.997] R`.
 4. Проверить: нет gap между rim и артом по радиусу.
 
-### 5. QC checklist
+### 6. QC checklist
 
 - [ ] 1371×1371 (или согласованный размер)
 - [ ] Углы: alpha = 0
@@ -103,7 +134,7 @@
 - [ ] Сюжет не обрезан краем ободка
 - [ ] Превью на тёмном фоне выглядит как физическая медалька
 
-### 6. Deliver
+### 7. Deliver
 
 - Файл PNG; при серии — все экземпляры + короткий zip с нормальным именем (`badges.zip`).
 - Contact sheet в артефакты чата, если значков несколько.
