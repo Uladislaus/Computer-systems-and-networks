@@ -30,7 +30,20 @@ https://github.com/Uladislaus/Computer-systems-and-networks/raw/cursor/badges-pr
 | `11-povestka-farnell.png` | Фарнелл | 3-й |
 | `12-povestka-teploset.png` | теплосеть | 4-й справа |
 
-## Портреты / мемы / коты (ободок под картинку)
+## Ранний пакет (портреты / мандарины / аниме / коты) — в репо и в zip
+| Файл | Что |
+|------|-----|
+| `03_anime_pacany.png` | Ну что, аниме-пацаны |
+| `04_mandariny.png` | Мандарины |
+| `05_portret_bezh.png` | Портрет (беж) |
+| `06_portret_ochki_solnce.png` | Портрет (очки/солнце) |
+| `07_portret_sinie_glaza.png` | Портрет (синие глаза) |
+| `08_portret_ochki_pidzhak.png` | Портрет (очки/пиджак) |
+| `11_hto_ya.png` | Хто я |
+| `01_stirochka_gotova.png` | Стирочка готова (legacy) |
+| `02_omnomnom.png` | Омномном (legacy) |
+
+## Портреты / мемы / коты (новые TZ-имена)
 | Файл | Надпись |
 |------|---------|
 | `14-schastie.png` | Когда жизнь даёт тебе счастье |
@@ -48,5 +61,3 @@ https://github.com/Uladislaus/Computer-systems-and-networks/raw/cursor/badges-pr
 | `38-marsel.png` | Марсель |
 | `39-stirochka.png` | Стирочка готова |
 | `41-my.png` | Мы |
-
-Повторы из раннего пакета (обновлены из тех же макетов): `01_stirochka_gotova`, `02_omnomnom`, `09_ruchnoe_navedenie`, `10_spasibo_za_vnimanie`.
