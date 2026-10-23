@@ -1,32 +1,25 @@
 # Значки в печать (финальный пакет)
 
-Одна папка — всё скачивать отсюда.
+## Скачать (короткое имя)
+`badges.zip` — только финальные PNG:
 
-## Скачать всё сразу
-ZIP ветки:
-https://github.com/Uladislaus/Computer-systems-and-networks/archive/refs/heads/cursor/badges-print-black-bg-f67c.zip
+https://github.com/Uladislaus/Computer-systems-and-networks/raw/cursor/badges-print-black-bg-f67c/work/File/badges_print_ready/badges.zip
 
-После распаковки откройте:
-`work/File/badges_print_ready/`
+Или папка в репо: `work/File/badges_print_ready/`
 
-## Формат (правила макета)
-- PNG с альфой: снаружи круга прозрачность (как KOT)
-- один кантик из макета — постпроцесс только круглая маска, без второго обода и без ужатия арта
-- размер: 1371×1371 (56 мм + 1 мм bleed)
+## Формат
+- PNG с альфой: снаружи круга прозрачность
+- один кантик из макета
+- 1371×1371 (56 мм + 1 мм bleed)
 
-## Перерисовка по ТЗ (GenerateImage + crop)
-
-### `01`–`06` — первый пак Белгидромет (логотип в центре)
-| Файл | Фраза / фильм | Кантик |
-|------|----------------|--------|
-| `01-samurai.png` | Последний самурай | золото |
-| `02-shawshank.png` | Побег из Шоушенка | железо/серый |
-| `03-godfather.png` | Крёстный отец | золото |
-| `04-fightclub.png` | Бойцовский клуб | серебро |
-| `05-loh.png` | кто сдох — тот лох | серебро |
-| `06-diamond.png` | Бриллиантовая рука | золото |
-
-Дубликаты старых имён: `12_posledniy_samuray` … `16_…`, `21_brilliantovaya_ruka`.
-
-### Дальше по очереди (ещё не перерисованы заново)
-`07-bladerunner` … `12-povestka-teploset` и остальные по списку ТЗ.
+## Файлы в `badges.zip`
+| Файл | Надпись |
+|------|---------|
+| `01-samurai.png` | Последний самурай |
+| `02-shawshank.png` | Побег из Шоушенка |
+| `03-godfather.png` | Крёстный вождь |
+| `04-fightclub.png` | Бойцовский клуб |
+| `05-loh.png` | кто сдох — тот лох |
+| `06-diamond.png` | Бриллиантовая рука |
+| `07-bladerunner.png` | Бегущий по лезвию |
+| `09-kolobok.png` | Колобок |
