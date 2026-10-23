@@ -2,16 +2,13 @@
 
 ## Badge Factory (portable)
 
-Мы собрали **переносимую фабрику значков**. Источник правды:
+Переносимая фабрика **со сборкой и генерацией**. Источник правды: `badge-factory/`.
 
-- `badge-factory/README.md` — как поставить в любой проект / user skills
-- `badge-factory/SKILL.md` + `PLAYBOOK.md` — бриф и план цеха
-- `badge-factory/scripts/assemble_badge.py` — сборка 1371 + ободок
+- `scripts/factory.py pipeline` → job → агент зовёт `GenerateImage` → `assemble_badge.py`
+- Бэкенды: `cursor` (tool), `openai` (`OPENAI_API_KEY`), `http` (`BADGE_GEN_URL`)
+- Freeform: любая картинка через `--freeform`
 
-Копия skill для Cursor в этом репо: `.cursor/skills/badge-factory/`.
-
-Если скинули картинку и сказали «значок» — это полный неявный бриф фабрики
-(круг, один металлический ободок под сцену, 1371, прозрачность). Не квиз про имена.
+Копия skill: `.cursor/skills/badge-factory/`. Картинка + «значок» = полный бриф цеха.
 
 ## Выход цеха в ЭТОМ репозитории
 
